@@ -1,0 +1,2091 @@
+<!DOCTYPE html>
+<html lang="es" class="dark h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HADADANZA - Bandit Clone</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: '#FF2A5F', hover: '#E02454' },
+            bandit: { bgDark: '#1e1e1e', cardDark: '#232528', borderDark: '#3c3f43', hoverDark: '#2a2d30', textDark: '#f7f7f7', textMuted: '#9ca3af' },
+            status: { confirmed: '#2ECC71', reserve: '#3498DB', option: '#F59E0B', cancelled: '#95A5A6', band_work: '#9B59B6', holidays: '#E74C3C', conflict: '#E67E22' }
+          },
+          fontFamily: { sans: ['Open Sans', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <style>
+    [v-cloak] { display: none !important; }
+    body { font-family: 'Open Sans', sans-serif; background-color: #232528; color: #f7f7f7; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #3c3f43; border-radius: 4px; }
+    .timeline-container { display: flex; overflow-x: auto; flex-1: 1; scroll-behavior: smooth; }
+    .month-column { min-width: 250px; flex-shrink: 0; border-right: 1px solid #3c3f43; display: flex; flex-direction: column; }
+    .month-header { text-align: center; padding: 12px; font-weight: 600; font-size: 14px; border-bottom: 1px solid #3c3f43; background: #1e1e1e; position: sticky; top: 0; z-index: 10; }
+    .day-row { height: 40px; border-bottom: 1px solid #2a2d30; display: flex; align-items: center; padding: 0 10px; position: relative; }
+    .day-label { width: 40px; font-size: 10px; color: #9ca3af; display: flex; justify-content: space-between; font-weight: 600; }
+    .day-content { flex-1: 1; width: 100%; position: relative; height: 100%; display: flex; align-items: center; cursor: pointer; }
+    .day-content:hover { background: rgba(255,255,255,0.02); }
+    .event-block { position: absolute; left: 10px; right: 10px; height: 28px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: white; cursor: pointer; z-index: 5; box-shadow: 0 2px 4px rgba(0,0,0,0.2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 8px; transition: transform 0.1s;}
+    .event-block:hover { transform: scale(1.02); z-index: 6;}
+    .today-highlight { color: #38BDF8; font-weight: 700; background: rgba(56, 189, 248, 0.1); }
+    .form-input { width: 100%; background-color: #1e1e1e; border: 1px solid #3c3f43; border-radius: 4px; padding: 6px 10px; font-size: 12px; color: white; outline: none; transition: border-color 0.2s; }
+    .form-input:focus { border-color: #FF2A5F; }
+    .form-label { font-size: 11px; color: #9ca3af; padding-right: 12px; text-align: right; }
+    #map { height: 520px; width: 100%; border-radius: 0.5rem; z-index: 10; }
+    .slide-enter-active, .slide-leave-active { transition: transform 0.3s ease; }
+    .slide-enter-from, .slide-leave-to { transform: translateX(100%); }
+    .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+    .fade-enter-from, .fade-leave-to { opacity: 0; }
+  </style>
+</head>
+<body class="h-full flex overflow-hidden">
+  <div id="app" v-cloak class="h-full w-full flex">
+    <!-- LOGIN SCREEN -->
+    <template v-if="isLoginView">
+    <div class="h-full w-full flex items-center justify-center bg-bandit-bgDark">
+    <div class="w-full max-w-sm mx-auto p-8">
+      <div class="text-center mb-8">
+        <div class="w-20 h-20 bg-brand/10 rounded-full flex items-center justify-center mx-auto mb-4">
+          <span class="text-brand text-3xl font-black">H</span>
+        </div>
+        <h1 class="text-2xl font-bold text-white">HADADANZA</h1>
+        <p class="text-slate-400 text-sm mt-1">Portal de Gestión de Giras</p>
+      </div>
+
+      <form @submit.prevent="handleLogin" class="space-y-4">
+        <div v-if="loginError" class="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-red-400 text-sm">
+          <i class="fa-solid fa-circle-exclamation mr-2"></i>{{ loginError }}
+        </div>
+        <div class="space-y-1.5">
+          <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Email</label>
+          <input type="email" v-model="loginEmail" placeholder="colaborador@hadadanza.com" class="w-full bg-[#232528] border border-[#3c3f43] rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-brand transition-colors" required>
+        </div>
+        <div class="space-y-1.5">
+          <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Contraseña</label>
+          <input type="password" v-model="loginPassword" placeholder="••••••••" class="w-full bg-[#232528] border border-[#3c3f43] rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-brand transition-colors" required>
+        </div>
+        <button type="submit" :disabled="loginLoading" class="w-full bg-brand hover:bg-brand-hover disabled:opacity-50 text-white font-bold py-2.5 rounded-lg text-sm transition-colors flex items-center justify-center space-x-2">
+          <i v-if="!loginLoading" class="fa-solid fa-right-to-bracket"></i>
+          <i v-else class="fa-solid fa-spinner fa-spin"></i>
+          <span>{{ loginLoading ? 'Entrando...' : 'Entrar' }}</span>
+        </button>
+      </form>
+
+            <div class="mt-6 relative">
+        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-[#3c3f43]"></div></div>
+        <div class="relative flex justify-center text-xs uppercase"><span class="bg-[#1e1e1e] px-4 text-slate-500 font-semibold">o</span></div>
+      </div>
+      <div class="mt-6">
+        <button @click="handleGoogleLogin" class="w-full flex items-center justify-center space-x-3 bg-white hover:bg-gray-100 text-gray-800 font-medium py-2.5 px-4 rounded-lg text-sm transition-colors border border-gray-300 shadow-sm">
+          <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          <span>Continuar con Google</span>
+        </button>
+      </div>
+      <div class="mt-6 text-center">
+        <p class="text-slate-600 text-xs">Demo: <span class="text-slate-400 font-mono">admin@hadadanza.com</span> / <span class="text-slate-400 font-mono">admin123</span></p>
+      </div>
+      </div>
+    </div>
+    </template>
+
+    <!-- MAIN APP -->
+    <template v-else>
+    
+    <!-- GLOBAL SIDEBAR -->
+    <aside class="w-56 bg-[#1e1e1e] border-r border-bandit-borderDark flex flex-col z-40 flex-shrink-0">
+      <div class="h-40 border-b border-bandit-borderDark relative group overflow-hidden">
+        <img :src="activeArtist.image_url" class="w-full h-full object-cover opacity-60 transition-all duration-300 group-hover:blur-sm">
+        <div class="absolute inset-0 bg-gradient-to-t from-[#1e1e1e] to-transparent"></div>
+        <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/40">
+          <label v-if="hasPerm('can_edit_calendar')" class="cursor-pointer bg-[#2a2d30]/80 hover:bg-brand text-white px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md transition-colors flex items-center space-x-1.5 shadow-lg border border-white/10">
+            <i class="fa-solid fa-camera"></i> <span>Cambiar Portada</span>
+            <input type="file" @change="uploadArtistImage" class="hidden" accept="image/*">
+          </label>
+        </div>
+        <div class="absolute bottom-3 left-0 w-full text-center pointer-events-none"><h2 class="font-bold text-lg tracking-wide uppercase text-white drop-shadow-md">{{ activeArtist.name }}</h2></div>
+      </div>
+      <nav class="flex-1 overflow-y-auto custom-scrollbar py-4 space-y-0.5">
+        <a href="#" @click.prevent="openGlobalView('calendar')" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'calendar' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-regular fa-calendar w-6"></i> Calendario</a>
+        <a href="#" @click.prevent="openGlobalView('crew')" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'crew' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-solid fa-users w-6"></i> Crew</a>
+        <a href="#" @click.prevent="openGlobalView('collaborators')" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'collaborators' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-regular fa-address-card w-6"></i> Colaboradores</a>
+        <a href="#" @click.prevent="openGlobalView('roles')" v-if="hasPermission('roles','view')" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'roles' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-solid fa-lock w-6"></i> Roles</a>
+        <a href="#" @click.prevent="openGlobalView('economy')" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'economy' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-solid fa-dollar-sign w-6"></i> Resumen económico</a>
+                <a href="#" @click.prevent="openGlobalView('templates')" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'templates' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-regular fa-file-lines w-6"></i> Archivos</a>
+<a href="#" @click.prevent="showAuditLog = true" v-if="sessionUser?.role_id === 'role-admin'" class="flex items-center px-5 py-2.5 text-sm transition-colors text-slate-600 hover:text-slate-400 border-l-4 border-transparent"><i class="fa-solid fa-history w-6"></i> Auditoría</a>
+      </nav>
+      <div class="p-3 border-t border-bandit-borderDark bg-[#18191b]">
+        <div class="flex items-center space-x-2.5 mb-1">
+          <div class="w-8 h-8 rounded-full bg-brand/15 text-brand flex items-center justify-center font-bold text-sm flex-shrink-0">{{ sessionUser?.name?.charAt(0) || '?' }}</div>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs font-semibold text-white truncate leading-tight">{{ sessionUser?.name || 'Sin sesión' }}</p>
+            <p class="text-[10px] text-slate-500 truncate leading-tight">{{ sessionUser?.role_name || '' }}</p>
+          </div>
+          <button @click="handleLogout" class="text-slate-500 hover:text-red-400 transition-colors p-1" title="Cerrar sesión"><i class="fa-solid fa-right-from-bracket text-xs"></i></button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col overflow-hidden bg-bandit-bgDark relative">
+      <template v-if="globalView === 'calendar'">
+        <header class="h-16 border-b border-bandit-borderDark flex items-center justify-between px-6 bg-[#1e1e1e] flex-shrink-0">
+          <div class="flex items-center space-x-6">
+            <h1 class="text-2xl font-semibold">Calendario</h1>
+            <button v-if="hasPerm('can_edit_calendar')" @click="openEventEditor(null)" class="bg-brand hover:bg-brand-hover text-white px-4 py-1.5 rounded text-sm font-semibold flex items-center space-x-2"><i class="fa-solid fa-plus"></i><span>Crear evento</span></button>
+            <select v-model="calendarMode" class="bg-[#2a2d30] rounded border border-bandit-borderDark px-3 py-1.5 text-sm cursor-pointer hover:bg-[#33363a] outline-none text-white"><option value="yearly">Anual</option><option value="monthly">Mensual</option></select>
+            <div class="flex items-center space-x-1">
+              <button @click="changeYear(-1)" class="bg-[#2a2d30] border border-bandit-borderDark px-2 py-1.5 rounded hover:bg-[#33363a]"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+              <span class="px-3 font-semibold">{{ currentYear }}</span>
+              <button @click="changeYear(1)" class="bg-[#2a2d30] border border-bandit-borderDark px-2 py-1.5 rounded hover:bg-[#33363a]"><i class="fa-solid fa-chevron-right text-xs"></i></button>
+            </div>
+            <div v-if="calendarMode === 'monthly'" class="flex items-center space-x-1 border-l border-bandit-borderDark pl-4">
+               <button @click="changeMonth(-1)" class="bg-[#2a2d30] border border-bandit-borderDark px-2 py-1.5 rounded hover:bg-[#33363a]"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+               <span class="px-3 font-semibold capitalize w-24 text-center">{{ currentMonthName }}</span>
+               <button @click="changeMonth(1)" class="bg-[#2a2d30] border border-bandit-borderDark px-2 py-1.5 rounded hover:bg-[#33363a]"><i class="fa-solid fa-chevron-right text-xs"></i></button>
+            </div>
+          </div>
+          <div class="flex items-center space-x-4 text-[10px] font-semibold text-slate-300">
+            <label class="flex items-center space-x-1.5"><input type="checkbox" v-model="statusFilters.confirmed" class="accent-[#2ECC71]"> <span>Confirmado</span></label>
+            <label class="flex items-center space-x-1.5"><input type="checkbox" v-model="statusFilters.reserve" class="accent-[#3498DB]"> <span>Reserva</span></label>
+            <label class="flex items-center space-x-1.5"><input type="checkbox" v-model="statusFilters.option" class="accent-[#F59E0B]"> <span>Propuesta</span></label>
+            <div class="relative group ml-2">
+              <i class="fa-solid fa-ellipsis-vertical text-slate-500 cursor-pointer p-2"></i>
+              <div class="absolute right-0 mt-2 w-32 bg-[#2a2d30] rounded shadow-lg p-3 hidden group-hover:block z-50 flex flex-col space-y-2">
+                 <label class="flex items-center space-x-1.5"><input type="checkbox" v-model="statusFilters.band_work" class="accent-[#9B59B6]"> <span>Trabajo</span></label>
+                 <label class="flex items-center space-x-1.5"><input type="checkbox" v-model="statusFilters.holidays" class="accent-[#E74C3C]"> <span>Vacaciones</span></label>
+                 <label class="flex items-center space-x-1.5"><input type="checkbox" v-model="statusFilters.cancelled" class="accent-[#95A5A6]"> <span>Cancelado</span></label>
+                 <label class="flex items-center space-x-1.5"><input type="checkbox" v-model="statusFilters.conflict" class="accent-[#E67E22]"> <span>Conflicto</span></label>
+              </div>
+            </div>
+                        <!-- Google Calendar Sync Toggle -->
+            <div class="flex items-center space-x-2 ml-auto relative">
+              <div class="flex items-center space-x-2 bg-[#232528] border border-bandit-borderDark rounded-full px-3 py-1.5 text-xs">
+                <i class="fa-brands fa-google text-slate-400"></i>
+                <button @click="toggleGoogleSync" class="relative w-9 h-[18px] rounded-full transition-colors duration-300 focus:outline-none"
+                  :class="syncToggleEnabled ? 'bg-green-500/80' : 'bg-[#3c3f43]'">
+                  <div class="absolute top-0.5 w-[14px] h-[14px] bg-white rounded-full shadow transition-transform duration-300"
+                    :class="syncToggleEnabled ? 'translate-x-[18px]' : 'translate-x-[2px]'"></div>
+                </button>
+                <span class="font-semibold whitespace-nowrap" :class="syncToggleEnabled ? 'text-green-400' : 'text-slate-500'">
+                  {{ syncToggleEnabled ? 'Google Calendar sincronizado' : 'Google Calendar no sincronizado' }}
+                </span>
+                <button @click="showSyncInfo = !showSyncInfo" class="text-slate-500 hover:text-white transition-colors" title="Información de sincronización">
+                  <i class="fa-solid fa-circle-info text-[10px]"></i>
+                </button>
+              </div>
+              <!-- Sync Info Popover -->
+              <transition name="fade">
+                <div v-if="showSyncInfo" class="absolute top-full right-0 mt-2 w-64 bg-[#2a2d30] border border-[#3c3f43] rounded-lg shadow-xl z-50 p-4 text-xs space-y-3">
+                  <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 rounded-full bg-brand/10 flex items-center justify-center flex-shrink-0"><i class="fa-brands fa-google text-brand"></i></div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-slate-300 font-semibold">Google Calendar</p>
+                      <p class="text-slate-500 truncate">{{ googleEmail || 'No conectado' }}</p>
+                    </div>
+                    <div v-if="googleStatus === 'synced'" class="w-2 h-2 rounded-full bg-green-400 flex-shrink-0 mt-1"></div>
+                    <div v-else class="w-2 h-2 rounded-full bg-slate-500 flex-shrink-0 mt-1"></div>
+                  </div>
+                  <div class="border-t border-[#3c3f43] pt-3 space-y-2">
+                    <div class="flex justify-between"><span class="text-slate-500">Estado</span><span class="text-slate-300 capitalize">{{ googleStatus }}</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Última sincronización</span><span class="text-slate-300">{{ googleLastSync || 'Nunca' }}</span></div>
+                  </div>
+                  <div class="border-t border-[#3c3f43] pt-3 flex flex-col space-y-1.5">
+                    <button @click="syncGoogle" class="w-full text-left px-3 py-1.5 rounded text-slate-300 hover:bg-[#3c3f43] transition-colors flex items-center space-x-2">
+                      <i class="fa-solid fa-rotate text-[10px] text-brand"></i><span>Forzar sincronización</span>
+                    </button>
+                    <button @click="connectGoogle" class="w-full text-left px-3 py-1.5 rounded text-slate-300 hover:bg-[#3c3f43] transition-colors flex items-center space-x-2">
+                      <i class="fa-solid fa-arrow-right-arrow-left text-[10px] text-brand"></i><span>Cambiar cuenta de Google</span>
+                    </button>
+                    <button @click="disconnectGoogle" class="w-full text-left px-3 py-1.5 rounded text-red-400 hover:bg-[#3c3f43] transition-colors flex items-center space-x-2">
+                      <i class="fa-solid fa-unlink text-[10px]"></i><span>Desconectar cuenta</span>
+                    </button>
+                  </div>
+                </div>
+              </transition>
+            </div>
+          </div>
+        </header>
+        <div class="timeline-container custom-scrollbar">
+          <div v-for="month in timelineMonths" :key="month.id" class="month-column">
+            <div class="month-header capitalize">{{ month.name }} {{ month.year }}</div>
+            <div v-for="day in month.days" :key="day.dateStr" class="day-row group">
+              <div class="day-label" :class="{'today-highlight': day.isToday}"><span>{{ day.dayNum }}</span><span>{{ day.dayName }}</span></div>
+              <div class="day-content" @click="hasPerm('can_edit_calendar') ? openEventEditor(day.dateStr) : null">
+                <div v-for="evt in day.events" :key="evt.id" @click.stop="openEvent(evt)" class="event-block" :style="{ backgroundColor: getEventColor(evt.status) }">
+                  {{ evt.title }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- GLOBAL VIEWS (CREW, ECONOMY, COLLABS) -->
+      <template v-if="globalView === 'crew'">
+        <div class="p-8 h-full flex flex-col"><h1 class="text-2xl font-semibold mb-6">Crew</h1>
+          <div class="flex space-x-3 mb-6">
+            <button @click="addCrewMember" class="bg-brand text-white px-4 py-2 rounded text-sm font-semibold flex items-center space-x-2"><i class="fa-solid fa-plus"></i><span>Añadir miembro</span></button>
+            <button @click="addVehicle" class="bg-brand text-white px-4 py-2 rounded text-sm font-semibold flex items-center space-x-2"><i class="fa-solid fa-truck"></i><span>Añadir vehículo</span></button>
+          </div>
+          <div class="flex flex-1 space-x-6 overflow-hidden">
+            <!-- Left: Table -->
+            <div class="bg-[#1e1e1e] border border-bandit-borderDark rounded-lg overflow-hidden flex flex-col flex-1">
+              <div class="overflow-x-auto custom-scrollbar flex-1">
+                <table class="w-full text-left text-xs whitespace-nowrap"><thead class="text-[#7f8389] border-b border-bandit-borderDark"><tr><th class="p-3 font-normal w-8"></th><th class="p-3 font-normal">NOMBRE</th><th class="p-3 font-normal">ROL</th><th class="p-3 font-normal">TIPO</th><th class="p-3 font-normal">TELÉFONO</th><th class="p-3 font-normal">EMAIL</th><th class="p-3 font-normal">CATERING</th><th class="p-3 font-normal">ROOMING</th><th class="p-3 font-normal w-16"></th></tr></thead>
+                  <tbody class="divide-y divide-bandit-borderDark"><tr v-for="c in crew" :key="c.id" class="hover:bg-[#25282b]" :class="{'bg-[#2a2d30]': activeEditCrew && activeEditCrew.id === c.id}"><td class="p-3 text-slate-500 cursor-grab"><i class="fa-solid fa-grip-vertical"></i></td><td class="p-3 font-medium text-slate-200">{{ c.name }}</td><td class="p-3 text-slate-400">{{ c.role }}</td><td class="p-3 text-slate-400">{{ c.type }}</td><td class="p-3 text-slate-400">{{ c.phone }}</td><td class="p-3 text-slate-400">{{ c.email }}</td><td class="p-3 text-slate-400">{{ c.diet }}</td><td class="p-3 text-slate-400">{{ c.rooming }}</td><td class="p-3 text-right text-slate-500"><button @click="openCrewEditor(c)" class="hover:text-brand mr-2"><i class="fa-solid fa-pen text-xs"></i></button><button @click="deleteCrewMember(c.id)" class="hover:text-red-500"><i class="fa-solid fa-trash-can text-xs"></i></button></td></tr></tbody>
+                </table>
+              </div>
+            </div>
+            <!-- Right: Edit Panel -->
+            <div class="w-96 bg-[#232528] border border-bandit-borderDark rounded-lg overflow-y-auto custom-scrollbar flex flex-col" v-if="activeEditCrew">
+              <div class="p-5 border-b border-bandit-borderDark flex justify-between items-center bg-[#2a2d30]">
+                <h3 class="font-bold text-sm text-white">Editar: {{ activeEditCrew.name }}</h3>
+                <button @click="closeCrewEditor" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+              </div>
+              <div class="p-5 space-y-4 flex-1">
+                <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">Nombre</label><input type="text" v-model="activeEditCrew.name" class="form-input"></div>
+                <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">Rol</label><input type="text" v-model="activeEditCrew.role" class="form-input" placeholder="Ej. Batería, Voz, Técnico..."></div>
+                <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">Tipo</label><select v-model="activeEditCrew.type" class="form-input bg-[#232528]"><option>Fijo</option><option>Ocasional</option><option>Vehículo</option></select></div>
+                <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">Teléfono</label><input type="text" v-model="activeEditCrew.phone" class="form-input"></div>
+                <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">Email</label><input type="email" v-model="activeEditCrew.email" class="form-input"></div>
+                <div class="grid grid-cols-2 gap-4">
+                  <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">DNI</label><input type="text" v-model="activeEditCrew.dni" class="form-input"></div>
+                  <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">Pasaporte</label><input type="text" v-model="activeEditCrew.passport" class="form-input"></div>
+                </div>
+                <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">Dieta / Alergias</label><input type="text" v-model="activeEditCrew.diet" class="form-input" placeholder="Ej. Sin restricciones, Vegetariano..."></div>
+                <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">Rooming</label><select v-model="activeEditCrew.rooming" class="form-input bg-[#232528]"><option value="">No asignado</option><option>Individual</option><option>Doble</option><option>Suite</option></select></div>
+                <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">Fecha de nacimiento</label><input type="date" v-model="activeEditCrew.birthdate" class="form-input"></div>
+              </div>
+              <div class="p-5 border-t border-bandit-borderDark">
+                <button @click="saveCrewMember" class="bg-brand text-white w-full py-2 rounded text-sm font-bold"><i class="fa-solid fa-floppy-disk mr-1"></i> Guardar Cambios</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+      <template v-if="globalView === 'collaborators'">
+        <div class="p-8 h-full flex flex-col"><h1 class="text-2xl font-semibold mb-6">Colaboradores</h1>
+          <div class="flex flex-1 space-x-6 overflow-hidden">
+            <div class="w-1/3 flex flex-col space-y-4"><div class="flex-1 overflow-y-auto bg-[#1e1e1e] border border-bandit-borderDark rounded-lg divide-y divide-bandit-borderDark custom-scrollbar"><div v-for="c in collaborators" :key="c.id" @click="activeEditCol = c" class="p-4 flex items-center justify-between cursor-pointer hover:bg-[#25282b]" :class="{'bg-[#2a2d30]': activeEditCol && activeEditCol.id === c.id}"><div class="flex items-center space-x-3"><div class="w-8 h-8 rounded-full bg-brand/20 text-brand flex items-center justify-center font-bold text-sm">{{ c.name.charAt(0) }}</div><div><p class="text-sm font-semibold text-slate-200">{{ c.name }}</p><p class="text-[10px] text-slate-500">{{ c.email }}</p></div></div><i class="fa-solid fa-pen text-xs text-slate-500"></i></div></div></div>
+            <div class="w-2/3 bg-[#232528] border border-bandit-borderDark rounded-lg overflow-y-auto custom-scrollbar flex flex-col" v-if="activeEditCol">
+              <div class="p-6 border-b border-bandit-borderDark flex justify-between items-center bg-[#2a2d30]">
+                <h3 class="font-bold">Editar colaborador: {{ activeEditCol.name }}</h3>
+                <div class="flex items-center space-x-3">
+                  <button @click="saveCollaboratorChanges" class="bg-brand text-white px-3 py-1.5 rounded text-xs font-bold"><i class="fa-solid fa-floppy-disk mr-1"></i> Guardar</button>
+                  <button @click="activeEditCol=null" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+              </div>
+              <div class="p-6 space-y-5 flex-1 overflow-y-auto custom-scrollbar">
+                <div class="grid grid-cols-[100px_1fr] gap-4 items-center text-sm">
+                  <span class="text-slate-400 font-medium">Nombre</span>
+                  <input v-model="activeEditCol.name" class="form-input">
+                  <span class="text-slate-400 font-medium">Email</span>
+                  <input v-model="activeEditCol.email" class="form-input" type="email">
+                  <span class="text-slate-400 font-medium">Rol</span>
+                  <select v-model="activeEditCol.role_id" class="form-input bg-[#232528]">
+                    <option v-for="r in rolesList" :key="r.id" :value="r.id">{{ r.name }}</option>
+                  </select>
+                  <span class="text-slate-400 font-medium">Estado</span>
+                  <select v-model="activeEditCol.status" class="form-input bg-[#232528]">
+                    <option>Activo</option><option>Inactivo</option><option>Pendiente</option>
+                  </select>
+                </div>
+                <div class="border-t border-bandit-borderDark pt-5 mt-5">
+                  <h4 class="text-sm font-bold text-slate-300 mb-4">Permisos específicos (sobrescriben los del rol)</h4>
+                  <div class="flex items-center space-x-2.5 mb-4 flex-wrap gap-y-2">
+                    <button @click="matrixSelectAll" class="text-xs px-3 py-1.5 rounded border border-bandit-borderDark hover:bg-[#2a2d30] text-slate-300"><i class="fa-solid fa-check-double mr-1"></i>Todo</button>
+                    <button @click="matrixReadOnly" class="text-xs px-3 py-1.5 rounded border border-bandit-borderDark hover:bg-[#2a2d30] text-slate-300"><i class="fa-solid fa-eye mr-1"></i>Solo lectura</button>
+                    <button @click="matrixClear" class="text-xs px-3 py-1.5 rounded border border-bandit-borderDark hover:bg-[#2a2d30] text-slate-300"><i class="fa-solid fa-eraser mr-1"></i>Limpiar</button>
+                    <div class="flex-1"></div>
+                    <input v-model="moduleSearch" placeholder="Buscar..." class="form-input text-xs w-28">
+                  </div>
+                  <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-xs whitespace-nowrap">
+                      <thead><tr class="text-slate-400 border-b border-bandit-borderDark">
+                        <th class="text-left pb-2.5 pr-4 font-normal w-44">Módulo</th>
+                        <th v-for="act in allMatrixActions" :key="act" class="pb-2.5 font-normal text-center px-2 min-w-[60px]">{{ actionLabels[act] || act }}</th>
+                      </tr></thead>
+                      <tbody class="divide-y divide-bandit-borderDark/50">
+                        <tr v-for="mod in filteredModules" :key="mod.id" class="hover:bg-[#2a2d30] transition-colors">
+                          <td class="py-2.5 pr-4 text-slate-200 flex items-center space-x-2">
+                            <i :class="'fa-solid ' + (mod.icon || 'fa-cube')" class="text-slate-500 w-4 text-center"></i>
+                            <span>{{ mod.label }}</span>
+                          </td>
+                          <td v-for="act in allMatrixActions" :key="act" class="text-center py-2.5 px-2">
+                            <input type="checkbox" :checked="matrixHasPerm(mod.id, act)" @change="matrixToggle(mod.id, act)" :disabled="!isActionValid(mod, act)" class="accent-brand w-4 h-4 cursor-pointer">
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="w-2/3 flex items-center justify-center text-slate-500 border border-bandit-borderDark rounded-lg border-dashed">Selecciona un colaborador para editar sus permisos</div>
+          </div>
+        </div>
+      </template>
+
+      <!-- ROLES VIEW -->
+      <template v-if="globalView === 'roles'">
+        <div class="p-8 h-full flex flex-col"><h1 class="text-2xl font-semibold mb-6">Roles y Permisos</h1>
+          <div class="flex flex-1 space-x-6 overflow-hidden">
+            <div class="w-1/3 flex flex-col space-y-4">
+              <button @click="createRole" class="bg-brand text-white px-4 py-2 rounded text-sm font-semibold flex items-center space-x-2 w-full justify-center"><i class="fa-solid fa-plus"></i><span>Crear nuevo rol</span></button>
+              <div class="flex-1 overflow-y-auto bg-[#1e1e1e] border border-bandit-borderDark rounded-lg divide-y divide-bandit-borderDark custom-scrollbar">
+                <div v-for="r in rolesList" :key="r.id" @click="selectRole(r)" class="p-4 cursor-pointer hover:bg-[#25282b]" :class="{'bg-[#2a2d30] border-l-2 border-brand': activeRoleId === r.id}">
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <p class="text-sm font-semibold text-slate-200">{{ r.name }}</p>
+                      <p class="text-[10px] text-slate-500 mt-0.5">{{ r.description || 'Sin descripción' }}</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <span class="text-[10px] text-slate-500 bg-[#232528] px-2 py-0.5 rounded">{{ r.user_count }} usuarios</span>
+                      <span v-if="r.is_system" class="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">Sistema</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="w-2/3 bg-[#232528] border border-bandit-borderDark rounded-lg overflow-y-auto custom-scrollbar flex flex-col" v-if="activeRoleId">
+              <div class="p-6 border-b border-bandit-borderDark bg-[#2a2d30] flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                  <input v-model="activeRoleName" class="form-input text-lg font-bold w-64" placeholder="Nombre del rol">
+                  <input v-model="activeRoleDesc" class="form-input text-sm text-slate-400 w-48" placeholder="Descripción">
+                </div>
+                <div class="flex items-center space-x-2">
+                  <button @click="saveRole" class="bg-brand text-white px-4 py-1.5 rounded text-xs font-bold"><i class="fa-solid fa-floppy-disk mr-1"></i> Guardar</button>
+                  <button v-if="!activeRoleIsSystem" @click="deleteRole" class="bg-red-500/10 text-red-400 px-3 py-1.5 rounded text-xs font-bold hover:bg-red-500/20"><i class="fa-solid fa-trash-can mr-1"></i> Eliminar</button>
+                </div>
+              </div>
+              <div class="p-6 flex-1">
+                <!-- Permission matrix toolbar -->
+                <div class="flex items-center space-x-2.5 mb-5 flex-wrap gap-y-2">
+                  <button @click="matrixSelectAll" class="text-xs px-3 py-1.5 rounded border border-bandit-borderDark hover:bg-[#2a2d30] text-slate-300 transition-colors"><i class="fa-solid fa-check-double mr-1"></i>Seleccionar todo</button>
+                  <button @click="matrixReadOnly" class="text-xs px-3 py-1.5 rounded border border-bandit-borderDark hover:bg-[#2a2d30] text-slate-300 transition-colors"><i class="fa-solid fa-eye mr-1"></i>Solo lectura</button>
+                  <button @click="matrixFullAccess" class="text-xs px-3 py-1.5 rounded border border-bandit-borderDark hover:bg-[#2a2d30] text-slate-300 transition-colors"><i class="fa-solid fa-unlock mr-1"></i>Acceso completo</button>
+                  <button @click="copyFromRole" class="text-xs px-3 py-1.5 rounded border border-bandit-borderDark hover:bg-[#2a2d30] text-slate-300 transition-colors"><i class="fa-solid fa-copy mr-1"></i>Copiar desde rol</button>
+                  <div class="flex-1"></div>
+                  <input v-model="moduleSearch" placeholder="Buscar módulo..." class="form-input text-xs w-36">
+                </div>
+                <!-- Matrix table -->
+                <div class="overflow-x-auto custom-scrollbar">
+                  <table class="w-full text-xs whitespace-nowrap">
+                    <thead><tr class="text-slate-400 border-b border-bandit-borderDark">
+                      <th class="text-left pb-2.5 pr-4 font-normal w-44">Módulo</th>
+                      <th v-for="act in allMatrixActions" :key="act" class="pb-2.5 font-normal text-center px-2 min-w-[60px]">{{ actionLabels[act] || act }}</th>
+                    </tr></thead>
+                    <tbody class="divide-y divide-bandit-borderDark/50">
+                      <tr v-for="mod in filteredModules" :key="mod.id" class="hover:bg-[#2a2d30] transition-colors">
+                        <td class="py-2.5 pr-4 text-slate-200 flex items-center space-x-2">
+                          <i :class="'fa-solid ' + (mod.icon || 'fa-cube')" class="text-slate-500 w-4 text-center"></i>
+                          <span>{{ mod.label }}</span>
+                        </td>
+                        <td v-for="act in allMatrixActions" :key="act" class="text-center py-2.5 px-2">
+                          <input type="checkbox" :checked="matrixHasPerm(mod.id, act)" @change="matrixToggle(mod.id, act)" :disabled="!isActionValid(mod, act)" class="accent-brand w-4 h-4 cursor-pointer">
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div v-else class="w-2/3 flex items-center justify-center text-slate-500 border border-bandit-borderDark rounded-lg border-dashed">Selecciona un rol para gestionar sus permisos</div>
+          </div>
+        </div>
+      </template>
+
+      <template v-if="globalView === 'economy'">
+        <div class="p-8 h-full overflow-y-auto custom-scrollbar flex flex-col space-y-6"><h1 class="text-2xl font-semibold">Resumen económico</h1>
+          <div class="flex space-x-6">
+            <div class="w-64 bg-[#1e1e1e] border border-[#2a2d30] rounded-lg p-5 flex flex-col space-y-3">
+              <div class="flex justify-between items-center text-sm"><span class="text-slate-400">Ingresos</span><span>{{ formatCurrency(financesGlobal.incomes) }}</span></div><div class="flex justify-between items-center text-sm"><span class="text-slate-400">Gastos</span><span>0 €</span></div>
+              <div class="flex justify-between items-center text-sm font-bold pt-3 border-t border-[#2a2d30]"><span>Beneficios</span><span class="text-white">{{ formatCurrency(financesGlobal.incomes) }}</span></div>
+            </div>
+            <div class="flex-1 bg-[#1e1e1e] border border-[#2a2d30] rounded-lg p-5 relative flex flex-col">
+              <div class="absolute top-1/2 left-0 w-full border-t border-brand"></div>
+              <div class="absolute top-1/2 left-[10%] w-2 h-2 rounded-full bg-brand -mt-1 border-2 border-[#1e1e1e]"></div>
+              <div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex space-x-4 text-[10px] text-slate-500"><span class="flex items-center"><div class="w-3 h-0.5 bg-brand mr-1"></div> Hadadanza</span></div>
+            </div>
+          </div>
+          <div class="bg-[#1e1e1e] border border-bandit-borderDark rounded-lg overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-bandit-borderDark flex items-center space-x-4"><span class="text-sm font-semibold">{{ events.length }} conciertos</span></div>
+            <table class="w-full text-left text-xs whitespace-nowrap"><thead class="text-[#7f8389] bg-[#232528] border-b border-bandit-borderDark uppercase text-[10px]"><tr><th class="p-3 font-semibold">FECHA v</th><th class="p-3 font-semibold">NOMBRE</th><th class="p-3 font-semibold text-right">INGRESOS</th><th class="p-3 font-semibold text-right">GASTOS</th><th class="p-3 font-semibold text-right">BENEFICIOS</th><th class="p-3 font-semibold text-right">HADADANZA</th></tr></thead>
+              <tbody class="divide-y divide-bandit-borderDark/50">
+                <tr v-for="evt in sortedEvents" :key="evt.id" class="hover:bg-[#2a2d30] cursor-pointer" @click="openEvent(evt)"><td class="p-3 text-slate-300">{{ formatDate(evt.start_date) }}</td><td class="p-3 font-medium text-slate-200">{{ evt.title }}</td><td class="p-3 text-right text-slate-300">{{ formatCurrency(evt.guarantee_amount) }}</td><td class="p-3 text-right text-slate-300">0 €</td><td class="p-3 text-right text-slate-300">{{ formatCurrency(evt.guarantee_amount) }}</td><td class="p-3 text-right text-slate-300">{{ formatCurrency(evt.guarantee_amount) }}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+
+      <!--=========================================-->
+      <!-- SINGLE EVENT VIEW (15 TABS)             -->
+      <!--=========================================-->
+      <!--=========================================-->
+      <!-- TEMPLATES / ARCHIVOS GLOBAL VIEW        -->
+      <!--=========================================-->
+      <template v-if="globalView === 'templates'">
+        <div class="p-8 h-full overflow-y-auto custom-scrollbar flex flex-col space-y-6">
+          <div class="flex items-center justify-between mb-4">
+            <h1 class="text-2xl font-semibold">Archivos <span class="text-xs text-slate-500 font-normal ml-2">Plantillas reutilizables</span></h1>
+            <div class="flex items-center space-x-3">
+              <div class="flex items-center space-x-2 text-xs">
+                <select v-model="templateFilterType" class="form-input text-xs py-1 w-28">
+                  <option value="">Todos</option>
+                  <option value="contract">Contrato</option>
+                  <option value="technical">Técnico</option>
+                </select>
+                <select v-model="templateFilterCategory" class="form-input text-xs py-1 w-32">
+                  <option value="">Todas las categorías</option>
+                  <option v-for="cat in templateCategories" :key="cat" :value="cat">{{ cat }}</option>
+                </select>
+                <input v-model="templateSearch" placeholder="Buscar..." class="form-input text-xs py-1 w-36">
+              </div>
+              <button @click="openTemplateEditor(null)" class="bg-brand text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-brand-hover flex items-center space-x-1.5">
+                <i class="fa-solid fa-plus"></i><span>Nueva plantilla</span>
+              </button>
+            </div>
+          </div>
+
+          <div v-if="!templatesList || templatesList.length === 0" class="flex-1 flex items-center justify-center text-slate-500 border border-dashed border-[#3c3f43] rounded-lg">
+            <div class="text-center space-y-2"><i class="fa-regular fa-file-lines text-4xl text-slate-600"></i><p class="text-sm">No hay plantillas aún</p><p class="text-xs text-slate-600">Crea tu primera plantilla para empezar</p></div>
+          </div>
+
+          <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div v-for="tmpl in templatesList" :key="tmpl.id" class="bg-[#1e1e1e] border border-[#2a2d30] rounded-lg p-4 flex flex-col space-y-3 hover:border-brand/30 transition-colors">
+              <div class="flex items-start justify-between">
+                <div class="flex items-center space-x-2">
+                  <i :class="tmpl.file_type === '.pdf' ? 'fa-solid fa-file-pdf text-red-400 text-lg' : tmpl.file_type ? 'fa-solid fa-file-word text-blue-400 text-lg' : 'fa-regular fa-file-lines text-brand text-lg'"></i>
+                  <div>
+                    <h3 class="text-sm font-semibold text-white">{{ tmpl.name }}</h3>
+                    <span class="text-[10px] text-slate-500">{{ tmpl.type === 'contract' ? 'Contrato' : 'Técnico' }} · {{ tmpl.category }}</span>
+                  </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <span v-if="tmpl.file_name" class="text-[10px] text-slate-600">{{ tmpl.file_name.split('.').pop().toUpperCase() }}</span>
+                  <span v-if="tmpl.is_global" class="text-[10px] bg-brand/10 text-brand px-1.5 py-0.5 rounded">Global</span>
+                </div>
+              </div>
+              <p v-if="tmpl.description" class="text-xs text-slate-400 line-clamp-2">{{ tmpl.description }}</p>
+              <div class="flex items-center justify-between pt-2 border-t border-[#2a2d30] mt-auto">
+                <div class="flex space-x-2">
+                  <button @click="openTemplatePreview(tmpl)" class="text-xs text-slate-400 hover:text-white" title="Vista previa"><i class="fa-solid fa-eye"></i></button>
+                  <button @click="openTemplateEditor(tmpl)" class="text-xs text-slate-400 hover:text-white" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                  <a v-if="tmpl.file_name" :href="'/api/v1/templates/'+tmpl.id+'/file'" class="text-xs text-slate-400 hover:text-white" title="Descargar archivo"><i class="fa-solid fa-download"></i></a>
+                  <button @click="duplicateTemplate(tmpl.id)" class="text-xs text-slate-400 hover:text-white" title="Duplicar"><i class="fa-solid fa-copy"></i></button>
+                  <button @click="deleteTemplate(tmpl.id, tmpl.name)" class="text-xs text-red-400 hover:text-red-300" title="Eliminar"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+                <button @click="applyTemplate(tmpl)" class="text-xs text-brand hover:text-brand-hover font-semibold">Usar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <div v-if="globalView === 'event' && currentEvent" class="absolute inset-0 bg-[#232528] z-30 flex flex-col">
+        <!-- Event Header -->
+        <header class="h-16 border-b border-[#3c3f43] bg-[#1e1e1e] flex items-center justify-between px-6 flex-shrink-0">
+          <div class="flex items-center space-x-4">
+            <button @click="openGlobalView('calendar')" class="text-slate-400 hover:text-white px-2"><i class="fa-solid fa-arrow-left"></i></button>
+            <h1 class="text-xl font-bold">{{ currentEvent.title || 'Evento sin título' }}</h1>
+            <span class="text-xs text-slate-400 flex items-center"><i class="fa-solid fa-location-dot mr-1"></i> {{ currentEvent.city || 'Ciudad...' }}</span>
+            <select v-model="currentEvent.status" :disabled="!hasPerm('can_edit_calendar')" class="px-2 py-1 rounded text-[10px] font-bold text-white uppercase outline-none cursor-pointer appearance-none" :style="{ backgroundColor: getEventColor(currentEvent.status) }">
+              <option value="confirmed" class="bg-[#232528] text-white">Confirmado</option><option value="reserve" class="bg-[#232528] text-white">Reserva</option><option value="option" class="bg-[#232528] text-white">Propuesta</option><option value="cancelled" class="bg-[#232528] text-white">Cancelado</option><option value="band_work" class="bg-[#232528] text-white">Trabajo Grupo</option><option value="holidays" class="bg-[#232528] text-white">Vacaciones</option><option value="conflict" class="bg-[#232528] text-white">Conflicto</option>
+            </select>
+            <span class="text-xs text-slate-400 flex items-center"><i class="fa-regular fa-calendar mr-1"></i> {{ formatDateLong(currentEvent.start_date) }}</span>
+          </div>
+          <div class="flex items-center space-x-3 text-xs text-slate-400">
+            <button v-if="hasPerm('can_edit_calendar')" @click="saveCurrentEvent" class="bg-brand hover:bg-brand-hover text-white px-4 py-1.5 rounded font-semibold shadow-sm text-sm">Guardar Cambios</button>
+            <label class="flex items-center space-x-1.5 text-xs cursor-pointer select-none border-l border-[#3c3f43] pl-3" :class="currentEvent.roadmap_completed ? 'text-green-400' : 'text-slate-400'">
+              <input type="checkbox" v-model="currentEvent.roadmap_completed" class="accent-green-500 w-3.5 h-3.5">
+              <span>Hoja de ruta: <span class="font-bold" :class="currentEvent.roadmap_completed ? 'text-green-400' : 'text-slate-500'">{{ currentEvent.roadmap_completed ? 'Hecha' : 'Pendiente' }}</span></span>
+            </label>
+          </div>
+        </header>
+
+        <div class="flex flex-1 overflow-hidden">
+          <!-- Event Sidebar -->
+          <aside class="w-56 bg-[#1e1e1e] border-r border-[#3c3f43] flex flex-col flex-shrink-0 py-2 overflow-y-auto custom-scrollbar">
+            <a v-for="tab in eventTabs" :key="tab.id" href="#" @click.prevent="activeEventTab = tab.id" class="flex items-center px-5 py-2.5 text-[11px] font-semibold transition-colors" :class="activeEventTab === tab.id ? 'bg-[#2a2d30] border-l-4 border-brand text-white' : 'text-slate-400 hover:text-white hover:bg-[#25282b] border-l-4 border-transparent'">
+              <div class="w-6 flex justify-center"><i class="fa-solid" :class="tab.icon"></i></div> <span>{{ tab.label }}</span>
+            </a>
+          </aside>
+
+          <!-- Event Content Area (Forms) -->
+          <div class="flex-1 overflow-y-auto p-8 custom-scrollbar bg-[#232528]">
+            
+            <!-- 1. Información Básica -->
+            <div v-if="activeEventTab === 'info'" class="max-w-3xl space-y-4">
+              <div class="flex items-center space-x-2 text-slate-300 font-bold mb-4 border-b border-[#3c3f43] pb-2"><i class="fa-solid fa-sitemap"></i> <h2>Información básica</h2></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Título</label><input type="text" v-model="currentEvent.title" class="form-input"></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Fecha</label><input type="date" v-model="currentEvent.start_date" class="form-input w-1/3"></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Ciudad</label><input type="text" v-model="currentEvent.city" class="form-input"></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Recinto</label><div class="flex w-full space-x-2"><input type="text" v-model="currentEvent.venue_name" class="form-input flex-1"><button class="bg-[#2a2d30] border border-[#3c3f43] px-3 rounded text-xs hover:bg-[#33363a]">+ Crear recinto</button></div></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Contacto principal</label><input type="text" v-model="currentEvent.basic_info.contact" class="form-input"></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Empresa / Sala</label><input type="text" v-model="currentEvent.basic_info.company" class="form-input"></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Teléfono</label><input type="text" v-model="currentEvent.basic_info.phone" class="form-input w-1/3"></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Email</label><input type="email" v-model="currentEvent.basic_info.email" class="form-input w-2/3"></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-start pt-2"><label class="form-label pt-1.5">Notas generales</label><textarea v-model="currentEvent.basic_info.notes" rows="2" class="form-input"></textarea></div>
+              
+              <div v-if="hasPerm('can_view_finances')" class="border-t border-[#3c3f43] pt-6 mt-4">
+                <div class="grid grid-cols-[140px_1fr] gap-4 items-center mb-4"><label class="form-label">Caché (€)</label><input type="number" v-model="currentEvent.guarantee_amount" class="form-input w-1/3 text-brand font-bold"></div>
+                <div class="grid grid-cols-[140px_1fr] gap-4 items-center mb-4"><label class="form-label">Condiciones</label><input type="text" v-model="currentEvent.basic_info.conditions" class="form-input"></div>
+                <div class="grid grid-cols-[140px_1fr] gap-4 items-center mb-4"><label class="form-label">Forma de pago</label><select v-model="currentEvent.basic_info.deal_type" class="form-input bg-[#232528]"><option value="cash">Efectivo</option><option value="transfer">Transferencia bancaria</option><option value="percentage">Porcentaje de taquilla</option></select></div>
+                <div class="grid grid-cols-[140px_1fr] gap-4 items-center mb-4"><label class="form-label">Es producción propia</label><input type="checkbox" v-model="currentEvent.basic_info.is_own_production" class="accent-brand w-4 h-4"></div>
+              </div>
+
+              <div class="border-t border-[#3c3f43] pt-6 mt-4 space-y-4">
+                <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Booker interno</label><input type="text" v-model="currentEvent.basic_info.internal_booker" class="form-input"></div>
+                <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Resp. producción</label><input type="text" v-model="currentEvent.basic_info.internal_production" class="form-input"></div>
+                <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Hora concierto</label><input type="time" v-model="currentEvent.basic_info.show_time" class="form-input w-1/3"></div>
+                <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Más artistas</label><input type="text" v-model="currentEvent.basic_info.more_artists" class="form-input"></div>
+                <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Puede ser anunciado</label><select v-model="currentEvent.basic_info.is_announced" class="form-input w-1/3 bg-[#232528]"><option>Sí</option><option>No</option></select></div>
+                <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Tipo de entrada</label><select v-model="currentEvent.basic_info.ticket_type" class="form-input w-1/3 bg-[#232528]"><option>Pago</option><option>Gratis</option><option>Invitación</option></select></div>
+                <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Asistencia esperada</label><input type="text" v-model="currentEvent.basic_info.attendance" class="form-input w-1/3"></div>
+                <div class="grid grid-cols-[140px_1fr] gap-4 items-start pt-2"><label class="form-label pt-1.5">Notas hoja ruta</label><textarea v-model="currentEvent.basic_info.roadmap_notes" rows="2" class="form-input"></textarea></div>
+              </div>
+              <div class="border-t border-[#3c3f43] pt-6 mt-8 flex justify-end">
+                <button @click="exportFullRoadmapPDF" class="bg-brand hover:bg-brand-hover text-white px-5 py-2 rounded text-sm font-semibold shadow-sm flex items-center space-x-2">
+                  <i class="fa-solid fa-print"></i> <span>Exportar hoja de ruta completa</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 2. Contactos Específicos -->
+            <div v-if="activeEventTab === 'contacts'" class="max-w-3xl space-y-6">
+              <div class="flex items-center justify-between mb-4 border-b border-[#3c3f43] pb-2"><div class="flex items-center space-x-2 text-slate-300 font-bold"><i class="fa-solid fa-address-book"></i> <h2>Contactos del Evento</h2></div><button @click="addEventContact" class="bg-brand text-white px-3 py-1.5 rounded text-xs font-semibold">+ Añadir contacto</button></div>
+              <div v-if="currentEvent.event_contacts && currentEvent.event_contacts.length" class="space-y-3">
+                <div v-for="(contact, idx) in currentEvent.event_contacts" :key="idx" class="grid grid-cols-[1fr_1fr_1fr_1fr_40px] gap-2 items-center">
+                  <input type="text" v-model="contact.role" placeholder="Rol" class="form-input"><input type="text" v-model="contact.name" placeholder="Nombre" class="form-input"><input type="text" v-model="contact.phone" placeholder="Teléfono" class="form-input"><input type="email" v-model="contact.email" placeholder="Email" class="form-input">
+                  <button @click="currentEvent.event_contacts.splice(idx,1)" class="text-slate-500 hover:text-red-500 text-center"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+              </div>
+              <div v-else class="bg-[#1e1e1e] border border-[#3c3f43] rounded p-6 flex items-center space-x-3 text-slate-500"><div class="w-6 h-6 rounded-full bg-[#2a2d30] flex items-center justify-center text-xs"></div><span>Aún no hay contactos para este show.</span></div>
+            </div>
+
+            <!-- 3. Tareas -->
+            <div v-if="activeEventTab === 'tasks'" class="max-w-3xl space-y-6">
+              <div class="flex justify-between items-center mb-4 border-b border-[#3c3f43] pb-2">
+                <div class="flex items-center space-x-2 text-slate-300 font-bold"><i class="fa-solid fa-check-square"></i> <h2>Tareas de Producción</h2></div>
+                <div class="flex space-x-2">
+                  <button @click="addSingleTask" class="bg-brand text-white px-3 py-1.5 rounded text-xs font-semibold">+ Añadir tarea</button>
+                  <select @change="applyTaskTemplate" class="bg-[#2a2d30] border border-[#3c3f43] text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-[#33363a] outline-none"><option value="" disabled selected>+ Añadir desde plantilla</option></select>
+                </div>
+              </div>
+              <div v-if="currentEvent.tasks && currentEvent.tasks.length" class="space-y-2">
+                <div v-for="(t, idx) in currentEvent.tasks" :key="t.id" class="bg-[#1e1e1e] border border-[#3c3f43] p-3 rounded flex items-center justify-between">
+                  <div class="flex items-center space-x-3 w-full"><input type="checkbox" v-model="t.completed" class="w-4 h-4 accent-brand flex-shrink-0"><input type="text" v-model="t.text" class="bg-transparent border-none outline-none text-sm w-full text-white" :class="{'line-through text-slate-500': t.completed}"></div>
+                  <button @click="currentEvent.tasks.splice(idx,1)" class="text-slate-500 hover:text-red-500 ml-3"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+              </div>
+              <div v-else class="bg-[#1e1e1e] border border-[#3c3f43] rounded p-6 flex items-center space-x-3 text-slate-500"><div class="w-6 h-6 rounded-full bg-[#2a2d30] flex items-center justify-center text-xs"></div><span>Aún no hay tareas en el checklist.</span></div>
+            </div>
+
+            <!-- 4. Archivos -->
+            <div v-if="activeEventTab === 'files'" class="max-w-4xl space-y-6">
+              <div class="flex justify-between items-center mb-4 border-b border-[#3c3f43] pb-2">
+                <div class="flex items-center space-x-2 text-slate-300 font-bold"><i class="fa-solid fa-paperclip"></i> <h2>Archivos</h2></div>
+                <div class="flex space-x-2 items-center">
+                  <span class="text-xs text-slate-400 mr-4">{{ formatDate(currentEvent.start_date) }} {{ currentEvent.title }}</span>
+                  <label v-if="hasPerm('can_upload_files')" class="bg-[#2a2d30] border border-[#3c3f43] text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-[#33363a] cursor-pointer">
+                    + Subir ficheros <input type="file" class="hidden" @change="uploadEventFile">
+                  </label>
+                </div>
+              </div>
+              <div class="bg-[#1e1e1e] border border-[#3c3f43] rounded overflow-hidden">
+                <table class="w-full text-left text-xs">
+                  <thead class="text-[#7f8389] border-b border-[#3c3f43]"><tr><th class="p-3 font-normal">NOMBRE</th><th class="p-3 font-normal">TAMAÑO</th><th class="p-3 font-normal text-right">ACCIONES</th></tr></thead>
+                  <tbody class="divide-y divide-[#3c3f43]">
+                    <tr v-for="f in currentEvent.files" :key="f.id" class="hover:bg-[#25282b] group">
+                      <td class="p-3 font-medium text-slate-200 flex items-center space-x-2"><i class="fa-solid fa-file-pdf text-slate-400"></i><span>{{ f.name }}</span></td><td class="p-3 text-slate-400">{{ f.size }}</td>
+                      <td class="p-3 text-right space-x-3 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity"><button v-if="hasPerm('can_upload_files')" @click="deleteEventFile(f.id)" class="hover:text-red-500"><i class="fa-solid fa-trash-can"></i></button><a :href="'/api/v1/events/'+currentEvent.id+'/files/download/'+f.id" class="hover:text-brand"><i class="fa-solid fa-download"></i></a></td>
+                    </tr>
+                    <tr v-if="!currentEvent.files || !currentEvent.files.length"><td colspan="3" class="p-6 text-center text-slate-500">Carpeta vacía</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- 5. Contrato -->
+            <div v-if="activeEventTab === 'contract'" class="h-full flex flex-col min-h-[600px]">
+              <div class="flex items-center space-x-2 text-slate-300 font-bold mb-4 border-b border-[#3c3f43] pb-2 flex-shrink-0"><i class="fa-solid fa-file-signature"></i> <h2>Contratos del Evento</h2></div>
+              <div v-if="hasPerm('can_view_finances')" class="flex-1 flex space-x-6">
+                <div class="w-1/3 space-y-4">
+                  <div class="grid grid-cols-[80px_1fr] gap-3 items-center"><label class="text-right text-xs text-slate-500">Estado</label><select v-model="currentEvent.has_contract" class="form-input bg-[#232528]"><option :value="false">Borrador</option><option :value="true">Firmado</option></select></div>
+                  <div class="grid grid-cols-[80px_1fr] gap-3 items-start"><label class="text-right text-xs text-slate-500 pt-1.5">Notas</label><textarea rows="3" class="form-input"></textarea></div>
+                  <div class="mt-6 pt-4 border-t border-[#3c3f43]">
+                    <h4 class="text-sm font-semibold mb-4 text-slate-300">Datos del Firmante</h4>
+                    <div class="space-y-3">
+                      <div class="grid grid-cols-[80px_1fr] gap-3 items-center"><label class="text-right text-xs text-slate-500">Firmante</label><input type="text" class="form-input"></div>
+                      <div class="grid grid-cols-[80px_1fr] gap-3 items-center"><label class="text-right text-xs text-slate-500">Empresa</label><input type="text" class="form-input"></div>
+                      <div class="grid grid-cols-[80px_1fr] gap-3 items-center"><label class="text-right text-xs text-slate-500">NIF/CIF</label><input type="text" class="form-input"></div>
+                    </div>
+                  </div>
+                  <div class="mt-6 pt-4 border-t border-[#3c3f43]">
+                    <h4 class="text-sm font-semibold mb-4 text-slate-300">Imágenes del Contrato</h4>
+                    <div class="space-y-4">
+                      <div>
+                        <label class="text-xs text-slate-500 block mb-1">Logotipo</label>
+                        <label class="block w-full h-20 bg-[#1e1e1e] border border-dashed border-[#3c3f43] rounded cursor-pointer hover:border-brand flex items-center justify-center overflow-hidden">
+                          <template v-if="currentEvent.contract_logo">
+                            <img :src="currentEvent.contract_logo" class="h-full w-full object-contain p-1">
+                          </template>
+                          <template v-else>
+                            <span class="text-xs text-slate-500"><i class="fa-solid fa-image mr-1"></i>Añadir logotipo</span>
+                          </template>
+                          <input type="file" @change="uploadContractImage('logo', $event)" class="hidden" accept="image/*">
+                        </label>
+                      </div>
+                      <div>
+                        <label class="text-xs text-slate-500 block mb-1">Firma de la banda</label>
+                        <label class="block w-full h-20 bg-[#1e1e1e] border border-dashed border-[#3c3f43] rounded cursor-pointer hover:border-brand flex items-center justify-center overflow-hidden">
+                          <template v-if="currentEvent.contract_signature">
+                            <img :src="currentEvent.contract_signature" class="h-full w-full object-contain p-1">
+                          </template>
+                          <template v-else>
+                            <span class="text-xs text-slate-500"><i class="fa-solid fa-pen mr-1"></i>Añadir firma</span>
+                          </template>
+                          <input type="file" @change="uploadContractImage('signature', $event)" class="hidden" accept="image/*">
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="w-2/3 flex flex-col h-full space-y-2">
+                  <div class="flex justify-end space-x-2">
+                    <label class="bg-[#2a2d30] border border-[#3c3f43] text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-[#33363a] cursor-pointer">
+                      <i class="fa-solid fa-upload mr-1"></i> Importar .docx
+                      <input type="file" @change="importContractDocx" class="hidden" accept=".docx">
+<button @click="openTemplatePicker('contract')" class="bg-[#2a2d30] border border-[#3c3f43] text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-[#33363a] flex items-center space-x-1.5">
+  <i class="fa-regular fa-file-lines text-brand"></i><span>Importar desde plantilla</span>
+</button>
+                    </label>
+                    <button @click="generateContractPDF" class="bg-brand text-white px-4 py-1.5 rounded text-xs font-bold"><i class="fa-solid fa-print mr-1"></i> Exportar PDF Oficial</button>
+                  </div>
+                  <div class="bg-white rounded flex flex-col overflow-hidden shadow-lg flex-1"><div ref="contractEditorRef" contenteditable="true" class="flex-1 w-full p-8 text-black text-sm focus:outline-none font-serif leading-relaxed h-full overflow-y-auto" @input="contractTemplate = $event.target.innerHTML"></div></div>
+                  <div v-if="currentEvent.contract_logo || currentEvent.contract_signature" class="flex space-x-4 bg-[#1e1e1e] border border-[#3c3f43] rounded p-3 items-center">
+                    <span class="text-xs text-slate-500 font-semibold mr-2">Vista previa:</span>
+                    <img v-if="currentEvent.contract_logo" :src="currentEvent.contract_logo" class="h-10 w-auto max-w-[120px] object-contain border border-[#3c3f43] rounded bg-white p-1">
+                    <img v-if="currentEvent.contract_signature" :src="currentEvent.contract_signature" class="h-10 w-auto max-w-[120px] object-contain border border-[#3c3f43] rounded bg-white p-1">
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-center p-8 bg-[#1e1e1e] border border-[#3c3f43] rounded text-slate-500"><i class="fa-solid fa-lock text-3xl mb-3"></i><p>Acceso denegado a contratos.</p></div>
+            </div>
+
+            <!-- 6. Entradas -->
+            <div v-if="activeEventTab === 'tickets'" class="max-w-2xl space-y-6">
+              <div class="flex items-center space-x-2 text-slate-300 font-bold mb-4 border-b border-[#3c3f43] pb-2"><i class="fa-solid fa-ticket"></i> <h2>Entradas y Taquilla</h2></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Precio entrada</label><input type="text" v-model="currentEvent.ticketing.price" class="form-input"></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Enlace venta</label><input type="text" v-model="currentEvent.ticketing.sales_url" class="form-input"></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Puntos físicos</label><input type="text" v-model="currentEvent.ticketing.physical_points" class="form-input"></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Aforo (Total Tickets)</label><input type="number" v-model="currentEvent.ticketing.total_tickets" class="form-input w-1/3"></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Estado de la venta</label><select v-model="currentEvent.ticketing.status" class="form-input bg-[#232528] w-1/3"><option>Próximamente</option><option>A la venta</option><option>Sold Out</option></select></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-start pt-2"><label class="form-label pt-1.5">Notas Taquilla</label><textarea v-model="currentEvent.ticketing.notes" rows="3" class="form-input"></textarea></div>
+            </div>
+
+            <!-- 7. Invitados -->
+            <div v-if="activeEventTab === 'guests'" class="max-w-4xl space-y-6">
+              <div class="flex items-center space-x-2 text-slate-300 font-bold mb-4 border-b border-[#3c3f43] pb-2"><i class="fa-solid fa-clipboard-list"></i> <h2>Lista de Invitados</h2></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-start"><label class="form-label pt-1.5">Reglas de la lista</label><textarea v-model="currentEvent.guests.notes" rows="2" class="form-input"></textarea></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Cupo máximo</label><input type="number" v-model="currentEvent.guests.available" class="form-input w-1/4"></div>
+              <div class="flex justify-between items-center mt-8 border-b border-[#3c3f43] pb-2"><h3 class="font-bold text-sm text-slate-300">Invitados Registrados</h3><button @click="addGuest" class="bg-brand text-white px-3 py-1.5 rounded text-xs font-semibold">+ Añadir invitado</button></div>
+              <table class="w-full text-left text-xs" v-if="currentEvent.guests.list && currentEvent.guests.list.length">
+                <thead class="text-[#7f8389] border-b border-[#3c3f43]"><tr><th class="p-2">NOMBRE</th><th class="p-2">ACOMP.</th><th class="p-2">INVITADO POR</th><th class="p-2">NOTAS</th><th class="p-2"></th></tr></thead>
+                <tbody><tr v-for="(g, idx) in currentEvent.guests.list" :key="idx" class="border-b border-[#3c3f43]"><td class="p-2"><input type="text" v-model="g.name" class="form-input"></td><td class="p-2"><input type="number" v-model="g.companions" class="form-input w-16"></td><td class="p-2"><input type="text" v-model="g.invited_by" class="form-input"></td><td class="p-2"><input type="text" v-model="g.notes" class="form-input"></td><td class="p-2 text-right"><button @click="currentEvent.guests.list.splice(idx,1)" class="text-red-500"><i class="fa-solid fa-trash-can"></i></button></td></tr></tbody>
+              </table>
+              <div v-else class="bg-[#1e1e1e] border border-[#3c3f43] rounded p-6 flex items-center space-x-3 text-slate-500 mt-4"><div class="w-6 h-6 rounded-full bg-[#2a2d30] flex items-center justify-center text-xs"></div><span>No hay invitados en la lista.</span></div>
+            </div>
+
+            <!-- 8. Alojamiento -->
+            <div v-if="activeEventTab === 'accommodation'" class="max-w-4xl space-y-6">
+              <div class="flex items-center space-x-2 text-slate-300 font-bold mb-4 border-b border-[#3c3f43] pb-2"><i class="fa-solid fa-bed"></i> <h2>Alojamiento</h2></div>
+              <button @click="addHotel" class="bg-brand text-white px-3 py-1.5 rounded text-xs font-semibold mb-4">+ Añadir hotel</button>
+              <div v-for="(hotel, idx) in currentEvent.accommodation" :key="idx" class="bg-[#1e1e1e] border border-[#3c3f43] rounded-lg p-5 space-y-4 mb-6">
+                <div class="flex justify-between items-center text-sm font-bold text-slate-300 mb-2 border-b border-[#3c3f43] pb-2"><div class="flex items-center"><i class="fa-solid fa-grip-vertical text-[#3c3f43] mr-2 cursor-move"></i> {{ hotel.name || 'Nuevo Hotel' }}</div><button @click="currentEvent.accommodation.splice(idx,1)" class="text-red-500"><i class="fa-solid fa-trash-can"></i></button></div>
+                <div class="grid grid-cols-[140px_1fr] gap-3 items-center"><label class="form-label">Hotel</label><input type="text" v-model="hotel.name" class="form-input"></div>
+                <div class="grid grid-cols-[140px_1fr] gap-3 items-center"><label class="form-label">Dirección</label><input type="text" v-model="hotel.address" class="form-input"></div>
+                <div class="grid grid-cols-[140px_1fr] gap-3 items-center"><label class="form-label">Check In / Out</label><div class="flex space-x-2"><input type="time" v-model="hotel.check_in" class="form-input w-1/4"><input type="time" v-model="hotel.check_out" class="form-input w-1/4"></div></div>
+                <div class="grid grid-cols-[140px_1fr] gap-3 items-center"><label class="form-label">Rooming</label><input type="text" v-model="hotel.rooming" class="form-input"></div>
+              </div>
+            </div>
+
+            <!-- 9. Hospitalidad -->
+            <div v-if="activeEventTab === 'hospitality'" class="max-w-3xl space-y-6">
+              <div class="flex items-center space-x-2 text-slate-300 font-bold mb-4 border-b border-[#3c3f43] pb-2"><i class="fa-solid fa-mug-hot"></i> <h2>Hospitalidad y Rider</h2></div>
+              <div class="grid grid-cols-[120px_1fr] gap-4 items-start"><label class="form-label pt-1.5">Dietas / Alergias</label><textarea v-model="currentEvent.hospitality.diet" rows="2" class="form-input"></textarea></div>
+              <div class="grid grid-cols-[120px_1fr] gap-4 items-start"><label class="form-label pt-1.5">Catering</label><textarea v-model="currentEvent.hospitality.catering" rows="3" class="form-input"></textarea></div>
+              <div class="grid grid-cols-[120px_1fr] gap-4 items-start"><label class="form-label pt-1.5">Camerinos</label><textarea v-model="currentEvent.hospitality.camerino" rows="3" class="form-input"></textarea></div>
+              <div class="grid grid-cols-[120px_1fr] gap-4 items-start"><label class="form-label pt-1.5">Merchandising</label><textarea v-model="currentEvent.hospitality.merch" rows="2" class="form-input"></textarea></div>
+              <div class="grid grid-cols-[120px_1fr] gap-4 items-start"><label class="form-label pt-1.5">Notas Generales</label><textarea v-model="currentEvent.hospitality.notes" rows="2" class="form-input"></textarea></div>
+            </div>
+
+            <!-- 10. Viaje (Rutas) -->
+            <div v-if="activeEventTab === 'travel'" class="max-w-4xl space-y-6">
+              <div class="flex items-center space-x-2 text-slate-300 font-bold mb-4 border-b border-[#3c3f43] pb-2"><i class="fa-solid fa-plane"></i> <h2>Viaje (Roadmap)</h2></div>
+              <div class="space-y-3 mb-6"><div class="grid grid-cols-[200px_1fr] gap-3 items-center max-w-xl"><label class="form-label">Road manager</label><input type="text" v-model="currentEvent.travel.road_manager" class="form-input"></div><div class="grid grid-cols-[200px_1fr] gap-3 items-center max-w-xl"><label class="form-label">Runner</label><input type="text" v-model="currentEvent.travel.runner" class="form-input"></div></div>
+              <div class="flex space-x-3 mb-4">
+                <button @click="addTravelStage" class="bg-brand text-white px-3 py-1.5 rounded text-xs font-semibold">+ Añadir etapa de viaje</button>
+                <button @click="exportRoadmapPDF" class="bg-[#2a2d30] border border-[#3c3f43] text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-[#33363a]"><i class="fa-solid fa-print mr-1"></i> Exportar hoja de ruta PDF</button>
+              </div>
+              <div v-for="(stage, idx) in currentEvent.travel.stages" :key="idx" class="bg-[#1e1e1e] border border-[#3c3f43] rounded-lg p-5 space-y-4 mb-4">
+                <div class="flex justify-between items-center text-sm font-bold text-slate-300 mb-2 border-b border-[#3c3f43] pb-2"><div><i class="fa-solid fa-grip-vertical text-[#3c3f43] mr-2"></i> {{ stage.origin || 'Origen' }} -> {{ stage.destination || 'Destino' }}</div><button @click="currentEvent.travel.stages.splice(idx,1)" class="text-red-500"><i class="fa-solid fa-trash-can"></i></button></div>
+                <div class="grid grid-cols-[140px_1fr] gap-3 items-center"><label class="form-label">Origen / Destino</label><div class="flex items-center space-x-2"><input type="text" v-model="stage.origin" class="form-input w-1/2"> <span>-></span> <input type="text" v-model="stage.destination" class="form-input w-1/2"></div></div>
+                <div class="grid grid-cols-[140px_1fr] gap-3 items-center"><label class="form-label">Fecha y Transporte</label><div class="flex items-center space-x-2"><input type="date" v-model="stage.date" class="form-input w-1/3"><select v-model="stage.transport" class="form-input bg-[#232528] w-1/3"><option>Furgoneta</option><option>Avión</option><option>Tren</option></select></div></div>
+                <div class="grid grid-cols-[140px_1fr] gap-3 items-center"><label class="form-label">Salida / Llegada</label><div class="flex space-x-2"><input type="time" v-model="stage.departure_time" class="form-input w-1/4"><input type="time" v-model="stage.arrival_time" class="form-input w-1/4"></div></div>
+              </div>
+            </div>
+
+            <!-- 12. Técnico -->
+            <div v-if="activeEventTab === 'technical'" class="max-w-3xl space-y-6">
+              <div class="flex items-center space-x-2 text-slate-300 font-bold mb-4 border-b border-[#3c3f43] pb-2"><i class="fa-solid fa-sliders"></i> <h2>Especificaciones Técnicas (Rider)</h2></div>
+              <div class="grid grid-cols-[200px_1fr] gap-4 items-center"><label class="form-label">Contra Rider estado</label><select v-model="currentEvent.technical.contra_rider_status" class="form-input bg-[#232528] w-1/3"><option value=""></option><option>Aprobado</option><option>En negociación</option><option>Rechazado</option></select></div>
+              <div class="grid grid-cols-[200px_1fr] gap-4 items-start"><label class="form-label pt-1.5">Contra Rider / Backline notas</label><textarea v-model="currentEvent.technical.contra_rider_notes" rows="3" class="form-input"></textarea></div>
+              <div class="grid grid-cols-[200px_1fr] gap-4 items-center"><label class="form-label">Medidas escenario</label><input type="text" v-model="currentEvent.technical.stage_size" placeholder="Ej. 10m x 8m" class="form-input w-1/2"></div>
+              <div class="border-t border-[#3c3f43] pt-6 mt-4 grid grid-cols-[200px_1fr] gap-4 items-center"><label class="form-label">Empresa de sonido</label><input type="text" v-model="currentEvent.technical.sound_company" class="form-input"></div>
+              <div class="grid grid-cols-[200px_1fr] gap-4 items-center"><label class="form-label">Responsable de sonido</label><input type="text" v-model="currentEvent.technical.sound_rep" class="form-input"></div>
+              <div class="grid grid-cols-[200px_1fr] gap-4 items-center"><label class="form-label">Responsable de luces</label><input type="text" v-model="currentEvent.technical.light_rep" class="form-input"></div>
+
+              <!-- Rider Técnico PDF -->
+              <div class="border-t border-[#3c3f43] pt-6 mt-6">
+                <h4 class="text-sm font-bold text-slate-300 mb-3 flex items-center"><i class="fa-solid fa-file-pdf text-red-400 mr-2"></i> Rider Técnico (PDF)</h4>
+                <div v-if="currentEvent.technical.rider_file" class="flex items-center justify-between bg-[#1e1e1e] border border-[#3c3f43] rounded p-3 mb-2">
+                  <div class="flex items-center space-x-2 text-xs text-slate-300"><i class="fa-solid fa-file-pdf text-red-400"></i><span>{{ currentEvent.technical.rider_file.name }}</span></div>
+                  <div class="flex space-x-2">
+                    <a :href="'/api/v1/events/'+currentEvent.id+'/files/download/'+currentEvent.technical.rider_file.id" class="text-brand text-xs hover:underline"><i class="fa-solid fa-download"></i></a>
+                    <button @click="deleteTechnicalRider" class="text-red-500 text-xs"><i class="fa-solid fa-trash-can"></i></button>
+                  </div>
+                </div>
+                <div v-else class="bg-[#1e1e1e] border border-dashed border-[#3c3f43] rounded p-4 flex items-center justify-center">
+                  <label class="cursor-pointer flex items-center space-x-2 text-slate-400 hover:text-brand text-xs transition-colors">
+                    <i class="fa-solid fa-upload text-lg"></i>
+                    <span>Subir Rider (PDF)</span>
+                    <input type="file" @change="uploadTechnicalRider" class="hidden" accept=".pdf">
+                  </label>
+                </div>
+              </div>
+
+              <!-- Contra Rider PDFs -->
+              <div class="border-t border-[#3c3f43] pt-6 mt-6">
+                <h4 class="text-sm font-bold text-slate-300 mb-3 flex items-center"><i class="fa-solid fa-file-pdf text-orange-400 mr-2"></i> Contra Rider (PDFs)</h4>
+                <div v-if="currentEvent.technical.contra_rider_files && currentEvent.technical.contra_rider_files.length" class="space-y-2 mb-3">
+                  <div v-for="(f, idx) in currentEvent.technical.contra_rider_files" :key="f.id" class="flex items-center justify-between bg-[#1e1e1e] border border-[#3c3f43] rounded p-3">
+                    <div class="flex items-center space-x-2 text-xs text-slate-300"><i class="fa-solid fa-file-pdf text-orange-400"></i><span>{{ f.name }}</span></div>
+                    <div class="flex space-x-2">
+                      <a :href="'/api/v1/events/'+currentEvent.id+'/files/download/'+f.id" class="text-brand text-xs hover:underline"><i class="fa-solid fa-download"></i></a>
+                      <button @click="deleteTechnicalContraRider(idx)" class="text-red-500 text-xs"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+                  </div>
+                </div>
+                <div class="bg-[#1e1e1e] border border-dashed border-[#3c3f43] rounded p-4 flex items-center justify-center">
+                  <label class="cursor-pointer flex items-center space-x-2 text-slate-400 hover:text-brand text-xs transition-colors">
+                    <i class="fa-solid fa-upload text-lg"></i>
+                    <span>Subir Contra Rider (PDF)</span>
+                    <input type="file" @change="uploadTechnicalContraRider" class="hidden" accept=".pdf">
+                  </label>
+                </div>
+              </div>
+
+              <div class="mt-4 flex justify-end">
+                <button @click="openTemplatePicker('technical')" class="bg-[#2a2d30] border border-[#3c3f43] text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-[#33363a] flex items-center space-x-1.5">
+                  <i class="fa-regular fa-file-lines text-brand"></i><span>Importar desde plantilla</span>
+                </button>
+              </div>
+
+            </div>
+
+            <!-- 13. Horarios -->
+            <div v-if="activeEventTab === 'schedule'" class="max-w-3xl space-y-6">
+              <div class="flex items-center space-x-2 text-slate-300 font-bold mb-4 border-b border-[#3c3f43] pb-2"><i class="fa-solid fa-clock"></i> <h2>Horarios (Run of Show)</h2></div>
+              <button @click="addScheduleItem" class="bg-brand text-white px-3 py-1.5 rounded text-xs font-semibold mt-4">+ Añadir horario</button>
+              <table class="w-full text-left text-xs bg-[#1e1e1e] rounded overflow-hidden" v-if="currentEvent.schedule.items && currentEvent.schedule.items.length">
+                <thead class="text-[#7f8389] border-b border-[#3c3f43] bg-[#232528]"><tr><th class="p-3">HORA</th><th class="p-3">ACTIVIDAD</th><th class="p-3 w-1/2">NOTAS</th><th class="p-3"></th></tr></thead>
+                <tbody class="divide-y divide-[#3c3f43]"><tr v-for="(item, idx) in currentEvent.schedule.items" :key="idx"><td class="p-2"><input type="time" v-model="item.time" class="form-input"></td><td class="p-2"><input type="text" v-model="item.activity" class="form-input font-bold text-brand"></td><td class="p-2"><input type="text" v-model="item.notes" class="form-input"></td><td class="p-2 text-right"><button @click="currentEvent.schedule.items.splice(idx,1)" class="text-red-500"><i class="fa-solid fa-trash-can"></i></button></td></tr></tbody>
+              </table>
+              <div v-else class="bg-[#1e1e1e] border border-[#3c3f43] rounded p-6 flex items-center space-x-3 text-slate-500 mt-4"><div class="w-6 h-6 rounded-full bg-[#2a2d30] flex items-center justify-center text-xs"></div><span>No hay horarios programados</span></div>
+            </div>
+
+            <!-- 14. Contabilidad -->
+            <div v-if="activeEventTab === 'accounting'" class="max-w-4xl space-y-6">
+              <div class="flex items-center space-x-2 text-slate-300 font-bold mb-4 border-b border-[#3c3f43] pb-2"><i class="fa-solid fa-dollar-sign"></i> <h2>Contabilidad del Show</h2></div>
+              <div v-if="hasPerm('can_view_finances')">
+                <div class="flex space-x-6 border-b border-[#3c3f43] pb-0 mb-6">
+                  <div class="text-brand border-b-2 border-brand pb-2 text-xs font-bold px-2 text-center cursor-pointer">Balance<br><span class="text-[10px] font-normal text-slate-400">{{ formatCurrency(currentEvent.guarantee_amount) }}</span></div>
+                </div>
+                <div class="w-64 bg-[#1e1e1e] border border-brand/40 rounded-lg p-5 flex flex-col space-y-3">
+                  <div class="flex justify-between items-center text-xs"><span class="text-slate-400">Ingresos</span><span>{{ formatCurrency(currentEvent.guarantee_amount) }}</span></div>
+                  <div class="flex justify-between items-center text-xs"><span class="text-slate-400">Gastos</span><span>0 €</span></div>
+                  <div class="flex justify-between items-center text-sm font-bold pt-3 border-t border-[#2a2d30]"><span>Beneficio</span><span class="text-white">{{ formatCurrency(currentEvent.guarantee_amount) }}</span></div>
+                </div>
+                <div class="mt-8">
+                  <h3 class="font-bold text-sm mb-3">Reparto (Splits)</h3>
+                  <button @click="addAccountingSplit" class="bg-brand text-white px-3 py-1.5 rounded text-xs font-semibold mb-4">+ Añadir participante</button>
+                  <div v-if="currentEvent.accounting.splits && currentEvent.accounting.splits.length" class="space-y-2 max-w-md">
+                     <div v-for="(split, idx) in currentEvent.accounting.splits" :key="idx" class="flex items-center space-x-3 bg-[#1e1e1e] border border-[#3c3f43] p-2 rounded">
+                        <input type="text" v-model="split.name" placeholder="Ej. HADADANZA" class="form-input flex-1">
+                        <input type="number" v-model="split.percentage" placeholder="%" class="form-input w-20 text-center text-brand font-bold">
+                        <span class="text-xs w-24 text-right font-bold">{{ formatCurrency((currentEvent.guarantee_amount * split.percentage) / 100) }}</span>
+                        <button @click="currentEvent.accounting.splits.splice(idx,1)" class="text-red-500 px-2"><i class="fa-solid fa-trash-can"></i></button>
+                     </div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-center p-8 bg-[#1e1e1e] border border-[#3c3f43] rounded text-slate-500"><i class="fa-solid fa-lock text-3xl mb-3"></i><p>Acceso denegado a finanzas.</p></div>
+            </div>
+
+            <!-- 15. Promoción -->
+            <div v-if="activeEventTab === 'promo'" class="max-w-3xl space-y-6">
+              <div class="flex items-center space-x-2 text-slate-300 font-bold mb-4 border-b border-[#3c3f43] pb-2"><i class="fa-solid fa-bullhorn"></i> <h2>Promoción y Marketing</h2></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-start"><label class="form-label pt-1.5">Estrategia</label><textarea v-model="currentEvent.promotion.strategy" rows="3" class="form-input"></textarea></div>
+              <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Press Kit estado</label><select v-model="currentEvent.promotion.press_kit_status" class="form-input w-1/3 bg-[#232528]"><option value=""></option><option>Pendiente</option><option>Enviado</option></select></div>
+              <div class="border-t border-[#3c3f43] pt-6 mt-4 grid grid-cols-[140px_1fr] gap-4 items-start"><label class="form-label pt-1.5">Cartelería</label><textarea v-model="currentEvent.promotion.posters" rows="2" class="form-input"></textarea></div>
+              <div class="border-t border-[#3c3f43] pt-6 mt-4 grid grid-cols-[140px_1fr] gap-4 items-start"><label class="form-label pt-1.5">Entrevistas / Medios</label><textarea v-model="currentEvent.promotion.interviews" rows="3" class="form-input"></textarea></div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- DRAWER PARA NUEVO EVENTO -->
+      <transition name="fade"><div v-show="drawerOpen" class="fixed inset-0 bg-black/50 z-40" @click="drawerOpen = false"></div></transition>
+      <transition name="slide">
+        <div v-show="drawerOpen" class="fixed inset-y-0 right-0 z-50 w-full max-w-[400px] bg-[#232528] shadow-2xl border-l border-[#3c3f43] flex flex-col">
+        <div class="px-5 py-4 border-b border-[#3c3f43] flex items-center justify-between bg-[#1e1e1e]">
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider">Nuevo Evento</h3>
+          <button @click="drawerOpen = false" class="text-slate-400 hover:text-white hover:bg-red-500 rounded p-1 transition-all"><i class="fa-solid fa-xmark text-sm px-1"></i></button>
+        </div>
+        <form @submit.prevent="createNewEventFromDrawer" class="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
+          <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">Título *</label><input type="text" v-model="newEventForm.title" required class="form-input focus:border-brand"></div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">Fecha *</label><input type="date" v-model="newEventForm.start_date" required class="form-input"></div>
+            <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">Estado</label><select v-model="newEventForm.status" class="form-input font-bold appearance-none outline-none" :style="{ color: getEventColor(newEventForm.status) }"><option value="confirmed">Confirmado</option><option value="reserve">Reserva</option><option value="option">Propuesta</option><option value="cancelled">Cancelado</option><option value="band_work">Trabajo Grupo</option><option value="holidays">Vacaciones</option><option value="conflict">Conflicto</option></select></div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">Ciudad</label><input type="text" v-model="newEventForm.city" class="form-input"></div>
+            <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">Recinto</label><input type="text" v-model="newEventForm.venue_name" class="form-input"></div>
+          </div>
+          <div class="pt-4 mt-auto flex justify-end"><button type="submit" class="bg-brand hover:bg-brand-hover text-white px-6 py-2 rounded text-sm font-bold">Crear Evento</button></div>
+        </form>
+        </div>
+      </transition>
+    </main>
+    <!-- AUDIT LOG OVERLAY -->
+    <transition name="fade"><div v-show="showAuditLog" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" @click.self="showAuditLog=false">
+      <div class="w-full max-w-3xl max-h-[80vh] bg-[#1e1e1e] border border-bandit-borderDark rounded-lg flex flex-col overflow-hidden">
+        <div class="px-6 py-4 border-b border-bandit-borderDark flex items-center justify-between bg-[#232528]"><h3 class="font-bold text-sm">Registro de Auditoría</h3><button @click="showAuditLog=false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button></div>
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-4">
+          <div v-if="auditLogs.length === 0" class="text-center text-slate-500 py-8 text-sm">No hay registros de auditoría</div>
+          <div v-for="log in auditLogs" :key="log.id" class="flex items-start space-x-3 py-3 border-b border-bandit-borderDark/50 text-xs">
+            <div class="w-20 flex-shrink-0 text-slate-500">{{ log.created_at?.substring(0, 16).replace('T', ' ') }}</div>
+            <div class="w-20 flex-shrink-0"><span class="bg-brand/10 text-brand px-1.5 py-0.5 rounded text-[10px] font-semibold">{{ log.action }}</span></div>
+            <div class="w-24 flex-shrink-0 text-slate-400">{{ log.user_name || log.user_id }}</div>
+            <div class="flex-1 text-slate-500">{{ log.target_type }} {{ log.target_id }}</div>
+          </div>
+        </div>
+        <div class="px-6 py-3 border-t border-bandit-borderDark flex justify-between items-center bg-[#232528]">
+          <span class="text-[10px] text-slate-600">{{ auditTotal }} registros</span>
+          <button @click="loadAuditLogs" class="text-xs text-brand hover:text-brand-hover"><i class="fa-solid fa-rotate mr-1"></i>Recargar</button>
+        </div>
+      </div>
+    </div></transition>
+    <!-- TEMPLATE EDITOR MODAL -->
+    <transition name="fade"><div v-show="showTemplateEditor" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" @click.self="showTemplateEditor=false">
+      <div class="w-full max-w-lg max-h-[90vh] bg-[#1e1e1e] border border-bandit-borderDark rounded-lg flex flex-col overflow-hidden">
+        <div class="px-6 py-4 border-b border-bandit-borderDark flex items-center justify-between bg-[#232528]">
+          <h3 class="font-bold text-sm">{{ editTemplate ? 'Editar' : 'Nueva' }} Plantilla</h3>
+          <button @click="showTemplateEditor=false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">Nombre *</label><input type="text" v-model="templateForm.name" required class="form-input focus:border-brand"></div>
+            <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">Tipo</label><select v-model="templateForm.type" class="form-input"><option value="contract">Contrato</option><option value="technical">Técnico</option></select></div>
+          </div>
+          <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">Categoría</label><input type="text" v-model="templateForm.category" list="cat-suggestions" class="form-input">
+            <datalist id="cat-suggestions"><option v-for="cat in templateCategories" :value="cat"></datalist>
+          </div>
+          <div class="space-y-1.5"><label class="text-xs font-bold text-slate-400 uppercase">Descripción</label><textarea v-model="templateForm.description" rows="2" class="form-input"></textarea></div>
+
+          <!-- File Upload -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-slate-400 uppercase">Archivo de plantilla</label>
+            <p class="text-[10px] text-slate-500 mb-2">Sube un archivo .doc, .docx o .pdf. El contenido se extraerá automáticamente.</p>
+
+            <!-- Existing file info (when editing) -->
+            <div v-if="editTemplate && editTemplate.file_name" class="flex items-center justify-between bg-[#232528] border border-[#3c3f43] rounded p-3 mb-2">
+              <div class="flex items-center space-x-2 text-xs text-slate-300">
+                <i :class="editTemplate.file_type === '.pdf' ? 'fa-solid fa-file-pdf text-red-400' : 'fa-solid fa-file-word text-blue-400'"></i>
+                <span>{{ editTemplate.file_name }}</span>
+              </div>
+              <div class="flex space-x-2">
+                <a :href="'/api/v1/templates/'+editTemplate.id+'/file'" class="text-brand text-xs hover:underline" title="Descargar"><i class="fa-solid fa-download"></i></a>
+                <button @click="removeTemplateFile" class="text-red-400 text-xs hover:text-red-300" title="Eliminar archivo"><i class="fa-solid fa-xmark"></i></button>
+              </div>
+            </div>
+
+            <!-- File upload zone -->
+            <div v-if="!templateFileSelected" class="bg-[#232528] border border-dashed border-[#3c3f43] rounded p-4 flex items-center justify-center">
+              <label class="cursor-pointer flex items-center space-x-2 text-slate-400 hover:text-brand text-xs transition-colors">
+                <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
+                <span>{{ editTemplate && editTemplate.file_name ? 'Reemplazar archivo' : 'Seleccionar archivo' }}</span>
+                <input type="file" @change="handleTemplateFileUpload" class="hidden" accept=".doc,.docx,.pdf">
+              </label>
+            </div>
+
+            <!-- Extracted content preview -->
+            <div v-if="templateExtractedContent" class="bg-[#232528] border border-[#3c3f43] rounded p-3 mt-2">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[10px] text-slate-500 font-semibold uppercase">Vista previa del contenido extraído</span>
+                <span class="text-[10px] text-green-400"><i class="fa-solid fa-check mr-1"></i>{{ templateFileType === '.pdf' ? 'Texto extraído' : 'HTML extraído' }}</span>
+              </div>
+              <div class="max-h-32 overflow-y-auto text-xs text-slate-400 bg-[#1e1e1e] rounded p-2 font-mono">{{ templateExtractedContent.substring(0, 500) }}{{ templateExtractedContent.length > 500 ? '...' : '' }}</div>
+            </div>
+          </div>
+
+          <!-- Hidden: content is auto-extracted, no textarea needed -->
+          <div class="hidden">
+            <textarea v-model="templateForm.content"></textarea>
+          </div>
+        </div>
+        <div class="px-6 py-4 border-t border-bandit-borderDark flex justify-end space-x-3 bg-[#232528]">
+          <button @click="showTemplateEditor=false" class="px-4 py-2 rounded text-xs font-semibold border border-[#3c3f43] text-slate-300 hover:bg-[#2a2d30]">Cancelar</button>
+          <button @click="saveTemplate" :disabled="templateSaving || !templateForm.name" class="bg-brand text-white px-4 py-2 rounded text-xs font-semibold hover:bg-brand-hover disabled:opacity-50 flex items-center space-x-1.5">
+            <i v-if="templateSaving" class="fa-solid fa-spinner fa-spin"></i><span>{{ templateSaving ? 'Guardando...' : 'Guardar' }}</span>
+          </button>
+        </div>
+      </div>
+    </div></transition>
+
+    <!-- TEMPLATE PREVIEW MODAL -->
+    <transition name="fade"><div v-show="showTemplatePreview" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" @click.self="showTemplatePreview=false">
+      <div class="w-full max-w-2xl max-h-[85vh] bg-[#1e1e1e] border border-bandit-borderDark rounded-lg flex flex-col overflow-hidden">
+        <div class="px-6 py-4 border-b border-bandit-borderDark flex items-center justify-between bg-[#232528]">
+          <h3 class="font-bold text-sm flex items-center">
+            <i :class="previewTemplate?.file_type === '.pdf' ? 'fa-solid fa-file-pdf text-red-400 mr-2' : previewTemplate?.file_type ? 'fa-solid fa-file-word text-blue-400 mr-2' : 'fa-regular fa-file-lines text-brand mr-2'"></i>
+            {{ previewTemplate?.name }}
+          </h3>
+          <button @click="showTemplatePreview=false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div v-if="previewTemplate?.content" class="flex-1 overflow-y-auto custom-scrollbar p-6 bg-white text-black text-sm font-serif leading-relaxed" v-html="previewTemplate.content"></div>
+        <div v-else class="flex-1 flex items-center justify-center bg-[#1e1e1e]">
+          <div class="text-center text-slate-500 space-y-2">
+            <i class="fa-regular fa-file-lines text-3xl text-slate-600"></i>
+            <p class="text-sm">Vista previa no disponible</p>
+            <p class="text-xs text-slate-600">El contenido se extrae al guardar</p>
+            <a v-if="previewTemplate?.file_name" :href="'/api/v1/templates/'+previewTemplate.id+'/file'" class="text-brand text-xs hover:underline inline-flex items-center space-x-1 mt-2"><i class="fa-solid fa-download"></i><span>Descargar archivo original</span></a>
+          </div>
+        </div>
+        <div class="px-6 py-3 border-t border-bandit-borderDark flex justify-between items-center bg-[#232528]">
+          <span class="text-[10px] text-slate-500">{{ previewTemplate?.type === 'contract' ? 'Contrato' : 'Técnico' }} · {{ previewTemplate?.category }}<span v-if="previewTemplate?.file_name"> · {{ previewTemplate.file_name }}</span></span>
+          <button @click="showTemplatePreview=false" class="text-xs text-slate-400 hover:text-white">Cerrar</button>
+        </div>
+      </div>
+    </div></transition>
+
+    <!-- TEMPLATE PICKER MODAL -->
+    <transition name="fade"><div v-show="showTemplatePicker" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" @click.self="showTemplatePicker=false">
+      <div class="w-full max-w-xl max-h-[80vh] bg-[#1e1e1e] border border-bandit-borderDark rounded-lg flex flex-col overflow-hidden">
+        <div class="px-6 py-4 border-b border-bandit-borderDark flex items-center justify-between bg-[#232528]">
+          <h3 class="font-bold text-sm">Seleccionar plantilla de {{ pickerType === 'contract' ? 'Contrato' : 'Técnico' }}</h3>
+          <button @click="showTemplatePicker=false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-4">
+          <div v-if="!templatesList || templatesList.length === 0" class="text-center text-slate-500 py-8 text-sm">No hay plantillas de este tipo</div>
+          <div v-else class="space-y-2">
+            <div v-for="tmpl in templatesList" :key="tmpl.id" @click="applyTemplate(tmpl)" class="flex items-center justify-between p-3 bg-[#232528] border border-[#3c3f43] rounded-lg cursor-pointer hover:border-brand/50 transition-colors">
+              <div class="flex items-center space-x-3">
+                <i :class="tmpl.file_type === '.pdf' ? 'fa-solid fa-file-pdf text-red-400' : tmpl.file_type ? 'fa-solid fa-file-word text-blue-400' : 'fa-regular fa-file-lines text-brand'"></i>
+                <div><div class="text-sm font-semibold text-white">{{ tmpl.name }}</div><div class="text-[10px] text-slate-500">{{ tmpl.category }}<span v-if="tmpl.description"> · {{ tmpl.description }}</span></div></div>
+              </div>
+              <i class="fa-solid fa-chevron-right text-slate-500"></i>
+            </div>
+          </div>
+        </div>
+        <div class="px-6 py-3 border-t border-bandit-borderDark flex justify-end bg-[#232528]">
+          <button @click="showTemplatePicker=false" class="text-xs text-slate-400 hover:text-white">Cancelar</button>
+        </div>
+      </div>
+    </div></transition>
+  </div>
+  </template>
+
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script>
+    const { createApp, ref, reactive, computed, onMounted, watch } = Vue;
+
+    createApp({
+      setup() {
+        const sidebarCollapsed = ref(false);
+        const globalView = ref('calendar'); 
+        const showArtistDropdown = ref(false);
+        const API_BASE = '/api/v1';
+
+        // ── SESSION STATE ────────────────────────────────
+        const isLoginView = ref(true);
+        const loginEmail = ref('');
+        const loginPassword = ref('');
+        const loginError = ref('');
+        const loginLoading = ref(false);
+        const sessionUser = ref(null);
+        const sessionPermissions = ref({});
+
+        const collaborators = ref([]);
+        const activeEditCol = ref(null);
+
+        // ── GOOGLE CALENDAR ───────────────────────────────
+        const googleStatus = ref('disconnected');
+        const googleEmail = ref('');
+        const googleLastSync = ref('');
+        // ── TEMPLATES (Archivos) ─────────────────────────
+        const templatesList = ref([]);
+        const templateCategories = ref([]);
+        const templateFilterType = ref('');
+        const templateFilterCategory = ref('');
+        const templateSearch = ref('');
+        const showTemplateEditor = ref(false);
+        const editTemplate = ref(null);
+        const showTemplatePreview = ref(false);
+        const previewTemplate = ref(null);
+        const showTemplatePicker = ref(false);
+        const pickerType = ref('contract');
+        const templateForm = reactive({ name: '', description: '', type: 'contract', category: 'General', content: '' });
+        const templateSaving = ref(false);
+        const templateEventAssignments = ref({ contract: null, technical: null });
+        const templateFileSelected = ref(null);   // File object selected by user
+        const templateFileType = ref('');          // '.docx', '.pdf', etc
+        const templateExtractedContent = ref('');  // Extracted content preview
+
+        async function loadTemplates() {
+          try {
+            let url = `${API_BASE}/templates?type=${templateFilterType.value}&category=${templateFilterCategory.value}&search=${encodeURIComponent(templateSearch.value)}`;
+            const res = await fetch(url);
+            if (res.ok) { const d = await res.json(); templatesList.value = d.templates || []; }
+          } catch(e) {}
+        }
+
+        async function loadTemplateCategories() {
+          try {
+            const res = await fetch(`${API_BASE}/templates/categories/list`);
+            if (res.ok) { const d = await res.json(); templateCategories.value = d.categories || []; }
+          } catch(e) {}
+        }
+
+        function openTemplateEditor(tmpl) {
+          if (tmpl) {
+            templateForm.name = tmpl.name;
+            templateForm.description = tmpl.description || '';
+            templateForm.type = tmpl.type;
+            templateForm.category = tmpl.category;
+            templateForm.content = tmpl.content || '';
+            editTemplate.value = tmpl;
+          } else {
+            templateForm.name = '';
+            templateForm.description = '';
+            templateForm.type = 'contract';
+            templateForm.category = 'General';
+            templateForm.content = '';
+            editTemplate.value = null;
+          }
+          // Reset file state
+          templateFileSelected.value = null;
+          templateFileType.value = '';
+          templateExtractedContent.value = '';
+          showTemplateEditor.value = true;
+        }
+
+        async function saveTemplate() {
+          if (!templateForm.name || !templateForm.type) return;
+          templateSaving.value = true;
+          try {
+            const fd = new FormData();
+            fd.append('name', templateForm.name);
+            fd.append('type', templateForm.type);
+            fd.append('category', templateForm.category);
+            fd.append('description', templateForm.description);
+            fd.append('content', templateExtractedContent.value || templateForm.content);
+            // Append file if user selected one
+            if (templateFileSelected.value) {
+              fd.append('file', templateFileSelected.value);
+            }
+            if (editTemplate.value) {
+              const res = await fetch(`${API_BASE}/templates/${editTemplate.value.id}`, {
+                method: 'PUT', body: fd
+              });
+              if (res.ok) { showTemplateEditor.value = false; await loadTemplates(); }
+            } else {
+              const res = await fetch(`${API_BASE}/templates`, {
+                method: 'POST', body: fd
+              });
+              if (res.ok) { showTemplateEditor.value = false; await loadTemplates(); await loadTemplateCategories(); }
+            }
+          } catch(e) { console.error('Save template error:', e); }
+          templateSaving.value = false;
+        }
+
+        async function duplicateTemplate(id) {
+          try {
+            const res = await fetch(`${API_BASE}/templates/${id}/duplicate`, { method: 'POST' });
+            if (res.ok) await loadTemplates();
+          } catch(e) {}
+        }
+
+        async function deleteTemplate(id, name) {
+          if (!confirm(`Eliminar plantilla "${name}"?`)) return;
+          try {
+            const res = await fetch(`${API_BASE}/templates/${id}`, { method: 'DELETE' });
+            if (res.ok) await loadTemplates();
+          } catch(e) {}
+        }
+
+        // ── TEMPLATE FILE HANDLING ─────────────────────
+        async function handleTemplateFileUpload(ev) {
+          const file = ev.target.files[0];
+          if (!file) return;
+          const ext = file.name.split('.').pop().toLowerCase();
+          if (!['doc', 'docx', 'pdf'].includes(ext)) {
+            alert('Solo se permiten archivos .doc, .docx o .pdf');
+            ev.target.value = '';
+            return;
+          }
+          templateFileSelected.value = file;
+          templateFileType.value = '.' + ext;
+          // For DOCX, extract with mammoth on client for preview
+          if (ext === 'docx') {
+            try {
+              const arrayBuffer = await file.arrayBuffer();
+              const result = await mammoth.convertToHtml({ arrayBuffer });
+              templateExtractedContent.value = result.value;
+            } catch(e) {
+              templateExtractedContent.value = '[Error al extraer contenido del DOCX]';
+            }
+          } else if (ext === 'doc') {
+            try {
+              const arrayBuffer = await file.arrayBuffer();
+              const result = await mammoth.convertToHtml({ arrayBuffer });
+              templateExtractedContent.value = result.value;
+            } catch(e) {
+              templateExtractedContent.value = '[El formato .doc antiguo se procesará al guardar]';
+            }
+          } else if (ext === 'pdf') {
+            // PDF extraction will happen server-side; show name only
+            templateExtractedContent.value = '[PDF — la extracción de texto se realizará al guardar en el servidor]';
+          }
+          ev.target.value = '';
+        }
+
+        function removeTemplateFile() {
+          templateFileSelected.value = null;
+          templateFileType.value = '';
+          templateExtractedContent.value = '';
+          // Also clear the stored file info in the template
+          if (editTemplate.value) {
+            editTemplate.value.file_name = '';
+            editTemplate.value.file_type = '';
+          }
+        }
+
+        function openTemplatePreview(tmpl) {
+          previewTemplate.value = tmpl;
+          showTemplatePreview.value = true;
+        }
+
+        function openTemplatePicker(type) {
+          pickerType.value = type;
+          showTemplatePicker.value = true;
+          // Load only templates of this type
+          fetch(`${API_BASE}/templates?type=${type}`)
+            .then(r => r.json())
+            .then(d => { templatesList.value = d.templates || []; })
+            .catch(() => {});
+        }
+
+        function applyTemplate(tmpl) {
+          if (pickerType.value === 'contract') {
+            contractTemplate.value = tmpl.content;
+            if (contractEditorRef.value) contractEditorRef.value.innerHTML = tmpl.content;
+          } else if (pickerType.value === 'technical') {
+            // For technical, populate the technical rider text
+            // We'll set a ref for now - extend as needed
+            if (currentEvent.value) {
+              currentEvent.value.technical_rider = tmpl.content;
+            }
+          }
+          showTemplatePicker.value = false;
+        }
+
+        async function loadEventTemplateAssignments(eventId) {
+          if (!eventId) return;
+          try {
+            const res = await fetch(`${API_BASE}/templates/assign/${eventId}`);
+            if (res.ok) {
+              const d = await res.json();
+              const assigns = { contract: null, technical: null };
+              (d.assignments || []).forEach(a => { assigns[a.type] = a; });
+              templateEventAssignments.value = assigns;
+              // Auto-apply if event has assignments and content is empty
+              if (assigns.contract && (!currentEvent.value.contract_auto_generated || currentEvent.value.has_contract === false)) {
+                // Don't auto-override if user already edited
+              }
+            }
+          } catch(e) {}
+        }
+
+        // Watch filters for reloading
+        watch([templateFilterType, templateFilterCategory, templateSearch], () => {
+          if (globalView.value === 'templates') loadTemplates();
+        });
+        const showSyncInfo = ref(false);
+
+        // ── ROLES & PERMISSIONS MATRIX ────────────────────
+        const rolesList = ref([]);
+        const activeRoleId = ref(null);
+        const activeRoleName = ref('');
+        const activeRoleDesc = ref('');
+        const activeRoleIsSystem = ref(false);
+
+        // ── AUDIT LOG ─────────────────────────────────────
+        const showAuditLog = ref(false);
+        const auditLogs = ref([]);
+        const auditTotal = ref(0);
+        async function loadAuditLogs() {
+          try {
+            const res = await fetch(`${API_BASE}/audit-log`);
+            if (res.ok) { const d = await res.json(); auditLogs.value = d.logs; auditTotal.value = d.total; }
+          } catch (e) { /* ignore */ }
+        }
+        const modulesList = ref([]);
+        const moduleSearch = ref('');
+        const matrixPermissions = reactive({});
+        const allMatrixActions = ['view','create','edit','delete','share','manage_permissions'];
+        const actionLabels = { view:'Ver', create:'Crear', edit:'Editar', delete:'Eliminar', share:'Compartir', manage_permissions:'Admin' };
+        const filteredModules = computed(() => {
+          if (!moduleSearch.value) return modulesList.value;
+          const q = moduleSearch.value.toLowerCase();
+          return modulesList.value.filter(m => m.label.toLowerCase().includes(q) || m.id.toLowerCase().includes(q));
+        });
+
+        async function checkSession() {
+          try {
+            const res = await fetch(`${API_BASE}/auth/me`);
+            if (res.ok) {
+              const data = await res.json();
+              sessionUser.value = data.user;
+              sessionPermissions.value = data.permissions || {};
+              isLoginView.value = false;
+              return true;
+            }
+          } catch (e) { /* not logged in */ }
+          return false;
+        }
+
+        async function handleLogin() {
+          loginError.value = '';
+          loginLoading.value = true;
+          try {
+            const res = await fetch(`${API_BASE}/auth/login`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: loginEmail.value, password: loginPassword.value })
+            });
+            const data = await res.json();
+            if (data.success) {
+              sessionUser.value = data.user;
+              sessionPermissions.value = data.permissions || {};
+              isLoginView.value = false;
+              loginEmail.value = '';
+              loginPassword.value = '';
+              await loadInitialData();
+              await checkGoogleStatus();
+            } else {
+              loginError.value = data.error || 'Error al iniciar sesión';
+            }
+          } catch (e) {
+            loginError.value = 'Error de conexión con el servidor';
+          }
+          loginLoading.value = false;
+        }
+
+        async function handleLogout() {
+          try {
+            await fetch(`${API_BASE}/auth/logout`, { method: 'POST' });
+          } catch (e) { /* ignore */ }
+          sessionUser.value = null;
+          sessionPermissions.value = {};
+          isLoginView.value = true;
+        }
+
+        // -- GOOGLE LOGIN ------------------------------------
+        const googleLoginError = ref('');
+        function handleGoogleLogin() {
+          googleLoginError.value = '';
+          window.location.href = `${API_BASE}/auth/google?mode=login`;
+        }
+
+        function hasPermission(moduleId, action) {
+          const perms = sessionPermissions.value[moduleId];
+          if (!perms) return false;
+          return perms.includes(action) || perms.includes('*');
+        }
+
+        // Legacy wrapper for backward compatibility with existing templates
+        function hasPerm(perm) {
+          if (perm === 'can_edit_calendar') return hasPermission('calendar', 'edit') || hasPermission('calendar', 'create');
+          if (perm === 'can_view_finances') return hasPermission('events_accounting', 'view') || hasPermission('economy', 'view');
+          if (perm === 'can_upload_files') return hasPermission('events_files', 'create');
+          return false;
+        }
+
+        const artists = ref([]); const activeArtist = ref({ id: '', name: '', image_url: '', currency: 'EUR' });
+        const events = ref([]); const crew = ref([]); const activeEditCrew = ref(null);
+        const currentYear = ref(new Date().getFullYear()); const currentMonth = ref(new Date().getMonth());
+        const calendarMode = ref('yearly'); 
+        const statusFilters = reactive({ confirmed: true, reserve: true, option: true, cancelled: false, band_work: true, holidays: false, conflict: false });
+
+        function changeYear(dir) { currentYear.value += dir; }
+        function changeMonth(dir) { let nm = currentMonth.value + dir; if (nm > 11) { nm = 0; currentYear.value += 1; } else if (nm < 0) { nm = 11; currentYear.value -= 1; } currentMonth.value = nm; }
+        const currentMonthName = computed(() => new Date(currentYear.value, currentMonth.value, 1).toLocaleDateString('es-ES', { month: 'long' }));
+
+        const timelineMonths = computed(() => {
+          const months = []; const startMonth = calendarMode.value === 'yearly' ? 0 : currentMonth.value; const endMonth = calendarMode.value === 'yearly' ? 11 : currentMonth.value;
+          for (let m = startMonth; m <= endMonth; m++) {
+            const y = currentYear.value; const daysInMonth = new Date(y, m + 1, 0).getDate(); const days = [];
+            for (let d = 1; d <= daysInMonth; d++) {
+              const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+              const dayName = new Date(y, m, d).toLocaleDateString('es-ES', { weekday: 'short' }).substring(0, 3).toUpperCase();
+              let dayEvents = events.value.filter(e => e.start_date === dateStr && statusFilters[e.status]);
+              days.push({ dayNum: d, dayName, dateStr, isToday: false, events: dayEvents });
+            }
+            months.push({ id: `m-${y}-${m}`, year: y, name: new Date(y, m, 1).toLocaleDateString('es-ES', { month: 'long' }), days });
+          } return months;
+        });
+
+        const currentEvent = ref(null); const activeEventTab = ref('info'); const drawerOpen = ref(false);
+        const newEventForm = reactive({ title: 'Nuevo Evento', venue_name: '', city: '', start_date: '', status: 'option' });
+        const contractTemplate = ref("CONTRATO DE ACTUACIÓN MUSICAL (HADADANZA)\\n\\nReunidos por una parte el promotor organizador del evento de {{LUGAR}} en la ciudad de {{CIUDAD}}, y por otra parte el representante legal del grupo musical {{ARTISTA}}.\\n\\nAmbas partes acuerdan las siguientes cláusulas:\\n\\n1. El grupo realizará una presentación el día {{FECHA}}.\\n2. La compensación en carácter de garantía fija será de {{GARANTIA}}.\\n3. El organizador proveerá el rider técnico.\\n\\nFirmado electrónicamente.");
+        const contractEditorRef = ref(null);
+
+        const eventTabs = [ { id: 'info', label: 'Información básica', icon: 'fa-sitemap' }, { id: 'contacts', label: 'Contactos', icon: 'fa-address-book' }, { id: 'tasks', label: 'Tareas', icon: 'fa-check-square' }, { id: 'files', label: 'Archivos', icon: 'fa-paperclip' }, { id: 'contract', label: 'Contrato', icon: 'fa-file-signature' }, { id: 'tickets', label: 'Entradas', icon: 'fa-ticket' }, { id: 'guests', label: 'Invitados', icon: 'fa-clipboard-list' }, { id: 'accommodation', label: 'Alojamiento', icon: 'fa-bed' }, { id: 'hospitality', label: 'Hospitalidad', icon: 'fa-mug-hot' }, { id: 'travel', label: 'Viaje', icon: 'fa-plane' }, { id: 'technical', label: 'Técnico', icon: 'fa-sliders' }, { id: 'schedule', label: 'Horarios', icon: 'fa-clock' }, { id: 'accounting', label: 'Contabilidad', icon: 'fa-dollar-sign' }, { id: 'promo', label: 'Promoción', icon: 'fa-bullhorn' } ];
+
+        async function loadInitialData() {
+          try {
+            const resCol = await fetch(`${API_BASE}/collaborators`);
+            if(resCol.ok) collaborators.value = (await resCol.json()).collaborators;
+            const resCr = await fetch(`${API_BASE}/crew`);
+            if(resCr.ok) crew.value = (await resCr.json()).crew;
+            const resA = await fetch(`${API_BASE}/artists`); 
+            if(resA.ok) {
+              artists.value = (await resA.json()).artists;
+              if (artists.value.length) { 
+                activeArtist.value = artists.value[0]; 
+                await loadArtistEvents(activeArtist.value.id); 
+              }
+            }
+            // Load modules and roles for permission matrix
+            const resMod = await fetch(`${API_BASE}/modules`);
+            if(resMod.ok) modulesList.value = (await resMod.json()).modules;
+            await loadRoles();
+            // Check Google Calendar status
+            await checkGoogleStatus();
+          } catch (e) {
+            console.error("Error loading data:", e);
+          }
+        }
+
+        async function loadArtistEvents(id) {
+          const res = await fetch(`${API_BASE}/events/by-artist/${id}`); 
+          if(res.ok) events.value = (await res.json()).events;
+        }
+
+        function selectArtist(artist) { activeArtist.value = artist; showArtistDropdown.value = false; loadArtistEvents(artist.id); }
+        function openGlobalView(view) { globalView.value = view; currentEvent.value = null; if (view === 'templates') { loadTemplates(); loadTemplateCategories(); } }
+
+        function openEvent(evt) {
+          const e = JSON.parse(JSON.stringify(evt));
+          if(!e.basic_info) e.basic_info = {};
+          if(!e.event_contacts) e.event_contacts = [];
+          if(!e.accommodation) e.accommodation = [];
+          if(!e.travel) e.travel = {stages:[]};
+          if(!e.guests) e.guests = {list:[]};
+          if(!e.schedule) e.schedule = {items:[]};
+          if(!e.accounting) e.accounting = {splits:[]};
+          if(!e.ticketing) e.ticketing = {};
+          if(!e.hospitality) e.hospitality = {};
+          if(!e.technical) e.technical = {};
+          if(e.technical && !e.technical.rider_file) e.technical.rider_file = null;
+          if(e.technical && !e.technical.contra_rider_files) e.technical.contra_rider_files = [];
+          if(!e.promotion) e.promotion = {};
+          if(!e.tasks) e.tasks = [];
+          currentEvent.value = e;
+          activeEventTab.value = 'info'; 
+          globalView.value = 'event';
+        }
+
+        function openEventEditor(dateStr) {
+          if (!hasPerm('can_edit_calendar')) return;
+          newEventForm.title = 'Nuevo Evento'; newEventForm.venue_name = ''; newEventForm.city = ''; 
+          newEventForm.start_date = dateStr || new Date().toISOString().split('T')[0];
+          newEventForm.status = 'option';
+          drawerOpen.value = true;
+        }
+
+        async function createNewEventFromDrawer() {
+           const payload = { ...newEventForm, artist_id: activeArtist.value.id, guarantee_amount: 0 };
+           const res = await fetch(`${API_BASE}/events`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+           if(res.ok) {
+             const created = await res.json();
+             await loadArtistEvents(activeArtist.value.id);
+             openEvent(created.event); 
+             drawerOpen.value = false;
+           } else {
+             alert("Error guardando el evento");
+           }
+        }
+
+        async function saveCurrentEvent() {
+          if(!hasPerm('can_edit_calendar') || !currentEvent.value) return;
+          const url = `${API_BASE}/events/${currentEvent.value.id}`;
+          await fetch(url, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(currentEvent.value) });
+          await loadArtistEvents(activeArtist.value.id);
+          currentEvent.value = events.value.find(e => e.id === currentEvent.value.id) || currentEvent.value;
+          alert('¡Guardado!');
+        }
+
+        function addHotel() { currentEvent.value.accommodation.push({ name: '', address: '', phone: '', status: 'Por reservar', rooming: '', cost: 0, check_in: '', check_out: '' }); }
+        function addTravelStage() { currentEvent.value.travel.stages.push({ origin: '', destination: '', date: '', transport: 'Furgoneta', departure_time: '', arrival_time: '' }); }
+        function addScheduleItem() { currentEvent.value.schedule.items.push({ time: '', activity: '', notes: '' }); }
+        function addGuest() { currentEvent.value.guests.list.push({ name: '', companions: 0, invited_by: '', notes: '' }); }
+        function addEventContact() { currentEvent.value.event_contacts.push({ role: '', name: '', phone: '', email: '' }); }
+        function addAccountingSplit() { currentEvent.value.accounting.splits.push({ name: '', percentage: 10 }); }
+        
+        const newTaskText = ref('');
+        function addTaskToForm() { if(newTaskText.value) { currentEvent.value.tasks.push({id: 't-'+Date.now(), text: newTaskText.value, completed: false}); newTaskText.value=''; } }
+        function addSingleTask() { currentEvent.value.tasks.push({id: 't-'+Date.now(), text: '', completed: false}); }
+        async function uploadEventFile(event) {
+          const file = event.target.files[0]; if (!file || !currentEvent.value.id) return; const reader = new FileReader();
+          reader.onload = async (e) => {
+            const res = await fetch(`${API_BASE}/events/${currentEvent.value.id}/files/upload`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: file.name, type: file.type, size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`, base64: e.target.result.split(',')[1] }) });
+            if (res.ok) { await loadArtistEvents(activeArtist.value.id); currentEvent.value.files = events.value.find(ev=>ev.id===currentEvent.value.id).files; }
+          }; reader.readAsDataURL(file);
+        }
+        function deleteEventFile(fileId) { if(confirm('¿Eliminar archivo?')) { currentEvent.value.files = currentEvent.value.files.filter(f => f.id !== fileId); saveCurrentEvent(); } }
+        
+        async         function uploadArtistImage(event) {
+          const file = event.target.files[0]; if (!file || !activeArtist.value.id) return; const reader = new FileReader();
+          reader.onload = async (e) => {
+            const res = await fetch(`${API_BASE}/artists/${activeArtist.value.id}/image`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: file.name, base64: e.target.result.split(',')[1] }) });
+            if (res.ok) { const data = await res.json(); activeArtist.value.image_url = data.image_url; }
+          }; reader.readAsDataURL(file);
+        }
+
+        function uploadContractImage(type, event) {
+          const file = event.target.files[0]; if (!file) return; const reader = new FileReader();
+          reader.onload = (e) => {
+            if (type === 'logo') currentEvent.value.contract_logo = e.target.result;
+            else if (type === 'signature') currentEvent.value.contract_signature = e.target.result;
+          }; reader.readAsDataURL(file);
+        }
+
+        async function uploadTechnicalRider(event) {
+          const file = event.target.files[0]; if (!file || !currentEvent.value?.id) return;
+          const reader = new FileReader();
+          reader.onload = async (e) => {
+            try {
+              const res = await fetch(`${API_BASE}/events/${currentEvent.value.id}/files/upload`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: file.name, type: file.type, size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`, base64: e.target.result.split(',')[1] }) });
+              if (res.ok) { const data = await res.json(); currentEvent.value.technical.rider_file = data.file; }
+            } catch(err) { alert('Error al subir rider: ' + err.message); }
+          }; reader.readAsDataURL(file);
+          event.target.value = '';
+        }
+
+        async function uploadTechnicalContraRider(event) {
+          const file = event.target.files[0]; if (!file || !currentEvent.value?.id) return;
+          const reader = new FileReader();
+          reader.onload = async (e) => {
+            try {
+              const res = await fetch(`${API_BASE}/events/${currentEvent.value.id}/files/upload`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: file.name, type: file.type, size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`, base64: e.target.result.split(',')[1] }) });
+              if (res.ok) { const data = await res.json(); currentEvent.value.technical.contra_rider_files.push(data.file); }
+            } catch(err) { alert('Error al subir contra rider: ' + err.message); }
+          }; reader.readAsDataURL(file);
+          event.target.value = '';
+        }
+
+        function deleteTechnicalRider() {
+          if (currentEvent.value?.technical) currentEvent.value.technical.rider_file = null;
+        }
+
+        function deleteTechnicalContraRider(idx) {
+          if (currentEvent.value?.technical?.contra_rider_files) currentEvent.value.technical.contra_rider_files.splice(idx, 1);
+        }
+
+        function openCrewEditor(c) { activeEditCrew.value = c; }
+
+        function closeCrewEditor() { activeEditCrew.value = null; }
+
+        async function saveCrewMember() {
+          if (!activeEditCrew.value) return;
+          try {
+            const res = await fetch(`${API_BASE}/crew/${activeEditCrew.value.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(activeEditCrew.value) });
+            if (res.ok) {
+              const data = await res.json();
+              const idx = crew.value.findIndex(c => c.id === data.crew.id);
+              if (idx !== -1) crew.value[idx] = data.crew;
+              alert('Miembro guardado');
+            }
+          } catch (e) { alert('Error al guardar: ' + e.message); }
+        }
+
+        async function addCrewMember() {
+          try {
+            const res = await fetch(`${API_BASE}/crew`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Nuevo miembro', role: '', type: 'Fijo', phone: '', email: '', diet: '', rooming: '', birthdate: '', dni: '', passport: '' }) });
+            if (res.ok) {
+              const data = await res.json();
+              crew.value.push(data.crew);
+              openCrewEditor(data.crew);
+            }
+          } catch (e) { alert('Error al crear: ' + e.message); }
+        }
+
+        async function addVehicle() {
+          try {
+            const res = await fetch(`${API_BASE}/crew`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Nuevo vehículo', role: 'Vehículo', type: 'Vehículo', phone: '', email: '', diet: '', rooming: '', birthdate: '', dni: '', passport: '' }) });
+            if (res.ok) {
+              const data = await res.json();
+              crew.value.push(data.crew);
+              openCrewEditor(data.crew);
+            }
+          } catch (e) { alert('Error al crear: ' + e.message); }
+        }
+
+        async function deleteCrewMember(id) {
+          if (!confirm('¿Eliminar este miembro?')) return;
+          try {
+            const res = await fetch(`${API_BASE}/crew/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+              crew.value = crew.value.filter(c => c.id !== id);
+              if (activeEditCrew.value?.id === id) activeEditCrew.value = null;
+            }
+          } catch (e) { alert('Error al eliminar: ' + e.message); }
+        }
+
+        // ── GOOGLE CALENDAR ────────────────────────────────
+        async function checkGoogleStatus() {
+          try {
+            const res = await fetch(`${API_BASE}/google/status`);
+            if (res.ok) {
+              const data = await res.json();
+              googleStatus.value = data.status || 'disconnected';
+              googleEmail.value = data.email || '';
+              googleLastSync.value = data.lastSyncAt || '';
+            }
+          } catch (e) { /* not critical */ }
+        }
+
+        function connectGoogle() {
+          window.location.href = `${API_BASE}/auth/google`;
+        }
+
+        
+        // ── SYNC TOGGLE ────────────────────────────────────
+        const syncToggleEnabled = computed(() => {
+          return googleStatus.value === 'synced' || googleStatus.value === 'syncing';
+        });
+
+        async function toggleGoogleSync() {
+          if (syncToggleEnabled.value) {
+            // Turn off sync — pause it
+            await disconnectGoogle();
+          } else {
+            // Turn on sync
+            if (googleStatus.value === 'disconnected' || googleStatus.value === 'paused') {
+              await connectGoogle();
+            }
+          }
+        }
+
+        async function syncGoogle() {
+          googleStatus.value = 'syncing';
+          try {
+            const res = await fetch(`${API_BASE}/google/sync`, { method: 'POST' });
+            const data = await res.json();
+            if (data.status === 'success') {
+              await checkGoogleStatus();
+            } else {
+              googleStatus.value = 'error';
+            }
+          } catch (e) {
+            googleStatus.value = 'error';
+          }
+        }
+
+        async function disconnectGoogle() {
+          if (!confirm('¿Desconectar Google Calendar?')) return;
+          try {
+            await fetch(`${API_BASE}/google/disconnect`, { method: 'POST' });
+            googleStatus.value = 'disconnected';
+            googleEmail.value = '';
+            googleLastSync.value = '';
+          } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        // ── MATRIX HELPERS ─────────────────────────────────
+        function isActionValid(mod, action) {
+          if (!mod || !mod.actions) return false;
+          return mod.actions.some(a => a.action === action);
+        }
+        function matrixHasPerm(moduleId, action) {
+          return matrixPermissions[moduleId] && matrixPermissions[moduleId].includes(action);
+        }
+        function matrixToggle(moduleId, action) {
+          if (!matrixPermissions[moduleId]) matrixPermissions[moduleId] = [];
+          const idx = matrixPermissions[moduleId].indexOf(action);
+          if (idx > -1) matrixPermissions[moduleId].splice(idx, 1);
+          else matrixPermissions[moduleId].push(action);
+        }
+        function matrixSelectAll() {
+          for (const mod of modulesList.value) {
+            matrixPermissions[mod.id] = mod.actions.map(a => a.action);
+          }
+        }
+        function matrixReadOnly() {
+          for (const mod of modulesList.value) {
+            matrixPermissions[mod.id] = ['view'];
+          }
+        }
+        function matrixFullAccess() {
+          for (const mod of modulesList.value) {
+            matrixPermissions[mod.id] = mod.actions.map(a => a.action);
+          }
+        }
+        function matrixClear() {
+          for (const mod of modulesList.value) {
+            matrixPermissions[mod.id] = [];
+          }
+        }
+
+        // ── ROLES CRUD ─────────────────────────────────────
+        async function loadRoles() {
+          try {
+            const res = await fetch(`${API_BASE}/roles`);
+            if (res.ok) rolesList.value = (await res.json()).roles;
+          } catch (e) { console.error('Error loading roles:', e); }
+        }
+
+        async function selectRole(role) {
+          activeRoleId.value = role.id;
+          activeRoleName.value = role.name;
+          activeRoleDesc.value = role.description || '';
+          activeRoleIsSystem.value = !!role.is_system;
+          // Load permissions
+          try {
+            const res = await fetch(`${API_BASE}/roles/${role.id}/permissions`);
+            if (res.ok) {
+              const data = await res.json();
+              for (const mod of modulesList.value) {
+                matrixPermissions[mod.id] = data.permissions[mod.id] || [];
+              }
+            }
+          } catch (e) { console.error(e); }
+        }
+
+        async function saveRole() {
+          if (!activeRoleId.value) return;
+          try {
+            // Update name/description
+            await fetch(`${API_BASE}/roles/${activeRoleId.value}`, {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: activeRoleName.value, description: activeRoleDesc.value })
+            });
+            // Update permissions
+            const permPayload = {};
+            for (const mod of modulesList.value) {
+              permPayload[mod.id] = matrixPermissions[mod.id] || [];
+            }
+            await fetch(`${API_BASE}/roles/${activeRoleId.value}/permissions`, {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ permissions: permPayload })
+            });
+            await loadRoles();
+            // Re-select to refresh
+            const updated = rolesList.value.find(r => r.id === activeRoleId.value);
+            if (updated) selectRole(updated);
+            alert('Rol guardado correctamente');
+          } catch (e) { alert('Error al guardar: ' + e.message); }
+        }
+
+        async function createRole() {
+          const name = prompt('Nombre del nuevo rol:');
+          if (!name) return;
+          try {
+            const res = await fetch(`${API_BASE}/roles`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name, description: '' })
+            });
+            if (res.ok) {
+              const data = await res.json();
+              await loadRoles();
+              selectRole(data.role);
+            } else {
+              const err = await res.json();
+              alert(err.error || 'Error al crear rol');
+            }
+          } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        async function deleteRole() {
+          if (!activeRoleId.value || activeRoleIsSystem.value) return;
+          if (!confirm('¿Eliminar este rol? Los usuarios serán reasignados a "Colaborador".')) return;
+          try {
+            await fetch(`${API_BASE}/roles/${activeRoleId.value}`, { method: 'DELETE' });
+            activeRoleId.value = null;
+            activeRoleName.value = '';
+            activeRoleDesc.value = '';
+            await loadRoles();
+          } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        async function copyFromRole() {
+          if (!modulesList.value.length) return;
+          const roleNames = rolesList.value.map(r => `${r.name} (${r.id})`).join('\n');
+          const input = prompt(`ID del rol a copiar:\n${roleNames}`);
+          if (!input) return;
+          const roleId = input.trim();
+          try {
+            const res = await fetch(`${API_BASE}/roles/${roleId}/permissions`);
+            if (res.ok) {
+              const data = await res.json();
+              for (const mod of modulesList.value) {
+                matrixPermissions[mod.id] = data.permissions[mod.id] || [];
+              }
+            }
+          } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        // ── COLLABORATOR SAVE ──────────────────────────────
+        async function saveCollaboratorChanges() {
+          if (!activeEditCol.value) return;
+          try {
+            // Save basic info
+            await fetch(`${API_BASE}/collaborators/${activeEditCol.value.id}`, {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: activeEditCol.value.name,
+                email: activeEditCol.value.email,
+                role_id: activeEditCol.value.role_id,
+                status: activeEditCol.value.status
+              })
+            });
+            // Save permissions
+            const permPayload = {};
+            for (const mod of modulesList.value) {
+              const actions = matrixPermissions[mod.id] || [];
+              if (actions.length > 0) permPayload[mod.id] = actions;
+            }
+            await fetch(`${API_BASE}/collaborators/${activeEditCol.value.id}/permissions`, {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ permissions: permPayload })
+            });
+            alert('Colaborador guardado');
+          } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        async function importContractDocx(event) {
+          const file = event.target.files[0]; if (!file) return;
+          try {
+            const arrayBuffer = await file.arrayBuffer();
+            const result = await mammoth.convertToHtml({ arrayBuffer });
+            contractTemplate.value = result.value;
+            if (contractEditorRef.value) contractEditorRef.value.innerHTML = result.value;
+          } catch (e) {
+            alert('Error al importar el archivo .docx: ' + e.message);
+          }
+          event.target.value = '';
+        }
+
+        function exportRoadmapPDF() {
+          if (!currentEvent.value) return;
+          const ev = currentEvent.value;
+          const { jsPDF } = window.jspdf; const doc = new jsPDF();
+          let y = 20;
+          if (currentEvent.value.contract_logo) {
+            try { doc.addImage(currentEvent.value.contract_logo, 'PNG', 65, 5, 80, 20); y = 30; } catch(e) {}
+          }
+          doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.setTextColor(255, 42, 95);
+          doc.text("HOJA DE RUTA", 105, y, { align: "center" }); y += 8;
+          doc.setFontSize(12); doc.setTextColor(255, 42, 95); doc.text("HADADANZA", 105, y, { align: "center" }); y += 8;
+          doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(80, 80, 80);
+          doc.text("Artista: " + (activeArtist.value.name || ''), 14, y); y += 7;
+          doc.text("Evento: " + (ev.title || ''), 14, y); y += 7;
+          doc.text("Fecha: " + formatDateLong(ev.start_date), 14, y); y += 7;
+          doc.text("Ciudad: " + (ev.city || ''), 14, y); y += 7;
+          doc.text("Recinto: " + (ev.venue_name || ''), 14, y); y += 10;
+          doc.setDrawColor(200, 200, 200); doc.line(14, y, 196, y); y += 8;
+          doc.setFont("helvetica", "bold"); doc.setTextColor(50, 50, 50);
+          doc.text("Road Manager: " + (ev.travel?.road_manager || ''), 14, y); y += 7;
+          doc.setFont("helvetica", "normal");
+          doc.text("Runner: " + (ev.travel?.runner || ''), 14, y); y += 10;
+          if (ev.travel?.stages?.length) {
+            doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(255, 42, 95);
+            doc.text("Etapas del viaje", 14, y); y += 8;
+            doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(100, 100, 100);
+            doc.text("Origen", 14, y); doc.text("Destino", 60, y); doc.text("Fecha", 106, y); doc.text("Transporte", 142, y); doc.text("Salida", 178, y); y += 5;
+            doc.setDrawColor(255, 42, 95); doc.line(14, y, 196, y); y += 4;
+            doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(50, 50, 50);
+            ev.travel.stages.forEach(s => {
+              if (y > 270) { doc.addPage(); y = 20; }
+              doc.text(s.origin || '-', 14, y); doc.text(s.destination || '-', 60, y); doc.text(s.date || '-', 106, y); doc.text(s.transport || '-', 142, y); doc.text((s.departure_time || '') + ' - ' + (s.arrival_time || ''), 170, y); y += 7;
+            });
+          }
+          doc.save("Hoja_de_Ruta_" + (ev.title || 'evento') + ".pdf");
+        }
+
+        function applyTaskTemplate(e) {
+          // Stub para selección de plantilla (futura implementación)
+        }
+
+        function exportFullRoadmapPDF() {
+          if (!currentEvent.value) return;
+          const ev = currentEvent.value;
+          const { jsPDF } = window.jspdf; const doc = new jsPDF();
+          let y = 20;
+          // === LOGO ===
+          if (currentEvent.value.contract_logo) {
+            try { doc.addImage(currentEvent.value.contract_logo, 'PNG', 65, 5, 80, 20); y = 30; } catch(e) {}
+          }
+          // === HEADER ===
+          doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.setTextColor(255, 42, 95);
+          doc.text("HOJA DE RUTA", 105, y, { align: "center" }); y += 8;
+          doc.setFontSize(12); doc.setTextColor(255, 42, 95); doc.text("HADADANZA", 105, y, { align: "center" }); y += 10;
+          doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(60, 60, 60);
+          const infoLines = [
+            "Artista: " + (activeArtist.value.name || ''),
+            "Evento: " + (ev.title || ''),
+            "Fecha: " + formatDateLong(ev.start_date),
+            "Ciudad: " + (ev.city || ''),
+            "Recinto: " + (ev.venue_name || ''),
+            "Estado: " + (ev.status || '')
+          ];
+          infoLines.forEach(line => { doc.text(line, 14, y); y += 6; });
+          y += 4;
+          doc.setDrawColor(255, 42, 95); doc.line(14, y, 196, y); y += 8;
+
+          // === BASIC INFO ===
+          doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(255, 42, 95);
+          doc.text("Informaci\u00F3n b\u00E1sica", 14, y); y += 7;
+          doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
+          if (ev.basic_info) {
+            const basics = [];
+            if (ev.basic_info.contact) basics.push("Contacto: " + ev.basic_info.contact);
+            if (ev.basic_info.company) basics.push("Empresa: " + ev.basic_info.company);
+            if (ev.basic_info.phone) basics.push("Tel\u00E9fono: " + ev.basic_info.phone);
+            if (ev.basic_info.email) basics.push("Email: " + ev.basic_info.email);
+            if (ev.basic_info.show_time) basics.push("Hora concierto: " + ev.basic_info.show_time);
+            if (ev.basic_info.internal_booker) basics.push("Booker: " + ev.basic_info.internal_booker);
+            if (ev.basic_info.internal_production) basics.push("Resp. producci\u00F3n: " + ev.basic_info.internal_production);
+            if (ev.basic_info.more_artists) basics.push("M\u00E1s artistas: " + ev.basic_info.more_artists);
+            if (ev.basic_info.roadmap_notes) basics.push("Notas: " + ev.basic_info.roadmap_notes);
+            if (ev.guarantee_amount) basics.push("Cach\u00E9: " + formatCurrency(ev.guarantee_amount));
+            basics.forEach(line => { if (y > 270) { doc.addPage(); y = 20; } doc.text(line, 14, y); y += 5; });
+          }
+          y += 4;
+
+          // === CONTACTS ===
+          if (ev.event_contacts && ev.event_contacts.length) {
+            if (y > 250) { doc.addPage(); y = 20; }
+            doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(255, 42, 95);
+            doc.text("Contactos del evento", 14, y); y += 7;
+            doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(100, 100, 100);
+            doc.text("Rol", 14, y); doc.text("Nombre", 54, y); doc.text("Tel\u00E9fono", 100, y); doc.text("Email", 140, y); y += 4;
+            doc.setDrawColor(200, 200, 200); doc.line(14, y, 196, y); y += 4;
+            doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(60, 60, 60);
+            ev.event_contacts.forEach(c => {
+              if (y > 275) { doc.addPage(); y = 20; }
+              doc.text(c.role || '-', 14, y); doc.text(c.name || '-', 54, y); doc.text(c.phone || '-', 100, y); doc.text(c.email || '-', 140, y); y += 5;
+            });
+            y += 4;
+          }
+
+          // === GUESTS ===
+          if (ev.guests?.list?.length) {
+            if (y > 250) { doc.addPage(); y = 20; }
+            doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(255, 42, 95);
+            doc.text("Invitados", 14, y); y += 7;
+            doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(100, 100, 100);
+            doc.text("Nombre", 14, y); doc.text("Acomp.", 80, y); doc.text("Invitado por", 100, y); doc.text("Notas", 150, y); y += 4;
+            doc.setDrawColor(200, 200, 200); doc.line(14, y, 196, y); y += 4;
+            doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(60, 60, 60);
+            ev.guests.list.forEach(g => {
+              if (y > 275) { doc.addPage(); y = 20; }
+              doc.text(g.name || '-', 14, y); doc.text(String(g.companions || '0'), 80, y); doc.text(g.invited_by || '-', 100, y); doc.text(g.notes || '-', 150, y); y += 5;
+            });
+            y += 4;
+          }
+
+          // === ACCOMMODATION ===
+          if (ev.accommodation?.length) {
+            if (y > 240) { doc.addPage(); y = 20; }
+            doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(255, 42, 95);
+            doc.text("Alojamiento", 14, y); y += 7;
+            doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
+            ev.accommodation.forEach(h => {
+              if (y > 260) { doc.addPage(); y = 20; }
+              doc.setFont("helvetica", "bold"); doc.setTextColor(80, 80, 80);
+              doc.text(h.name || 'Hotel', 14, y); y += 5;
+              doc.setFont("helvetica", "normal"); doc.setTextColor(60, 60, 60);
+              if (h.address) { doc.text("Direcci\u00F3n: " + h.address, 14, y); y += 5; }
+              if (h.check_in || h.check_out) { doc.text("Check in: " + (h.check_in||'') + " / Check out: " + (h.check_out||''), 14, y); y += 5; }
+              if (h.rooming) { doc.text("Rooming: " + h.rooming, 14, y); y += 5; }
+              y += 3;
+            });
+            y += 4;
+          }
+
+          // === HOSPITALITY ===
+          if (ev.hospitality && (ev.hospitality.diet || ev.hospitality.catering || ev.hospitality.camerino || ev.hospitality.merch || ev.hospitality.notes)) {
+            if (y > 230) { doc.addPage(); y = 20; }
+            doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(255, 42, 95);
+            doc.text("Hospitalidad", 14, y); y += 7;
+            doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
+            if (ev.hospitality.diet) { doc.text("Dietas: " + ev.hospitality.diet, 14, y); y += 5; }
+            if (ev.hospitality.catering) { doc.text("Catering: " + ev.hospitality.catering, 14, y); y += 5; }
+            if (ev.hospitality.camerino) { doc.text("Camerinos: " + ev.hospitality.camerino, 14, y); y += 5; }
+            if (ev.hospitality.merch) { doc.text("Merchandising: " + ev.hospitality.merch, 14, y); y += 5; }
+            if (ev.hospitality.notes) { doc.text("Notas: " + ev.hospitality.notes, 14, y); y += 5; }
+            y += 4;
+          }
+
+          // === TRAVEL ===
+          if (ev.travel) {
+            if (y > 250) { doc.addPage(); y = 20; }
+            doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(255, 42, 95);
+            doc.text("Viaje (Roadmap)", 14, y); y += 7;
+            doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
+            if (ev.travel.road_manager) { doc.text("Road manager: " + ev.travel.road_manager, 14, y); y += 5; }
+            if (ev.travel.runner) { doc.text("Runner: " + ev.travel.runner, 14, y); y += 5; }
+            if (ev.travel.stages?.length) {
+              y += 2;
+              doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(100, 100, 100);
+              doc.text("Origen", 14, y); doc.text("Destino", 60, y); doc.text("Fecha", 106, y); doc.text("Transporte", 142, y); doc.text("Salida - Llegada", 170, y); y += 4;
+              doc.setDrawColor(255, 42, 95); doc.line(14, y, 196, y); y += 4;
+              doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(60, 60, 60);
+              ev.travel.stages.forEach(s => {
+                if (y > 275) { doc.addPage(); y = 20; }
+                doc.text(s.origin || '-', 14, y); doc.text(s.destination || '-', 60, y); doc.text(s.date || '-', 106, y); doc.text(s.transport || '-', 142, y); doc.text((s.departure_time||'') + ' - ' + (s.arrival_time||''), 165, y); y += 5;
+              });
+            }
+            y += 4;
+          }
+
+          // === TECHNICAL ===
+          if (ev.technical && (ev.technical.contra_rider_status || ev.technical.stage_size || ev.technical.sound_company || ev.technical.sound_rep || ev.technical.light_rep)) {
+            if (y > 240) { doc.addPage(); y = 20; }
+            doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(255, 42, 95);
+            doc.text("T\u00E9cnico", 14, y); y += 7;
+            doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
+            if (ev.technical.contra_rider_status) { doc.text("Contra Rider: " + ev.technical.contra_rider_status, 14, y); y += 5; }
+            if (ev.technical.stage_size) { doc.text("Medidas escenario: " + ev.technical.stage_size, 14, y); y += 5; }
+            if (ev.technical.sound_company) { doc.text("Empresa sonido: " + ev.technical.sound_company, 14, y); y += 5; }
+            if (ev.technical.sound_rep) { doc.text("Resp. sonido: " + ev.technical.sound_rep, 14, y); y += 5; }
+            if (ev.technical.light_rep) { doc.text("Resp. luces: " + ev.technical.light_rep, 14, y); y += 5; }
+            if (ev.technical.contra_rider_notes) { doc.text("Notas t\u00E9cnicas: " + ev.technical.contra_rider_notes, 14, y); y += 5; }
+            y += 4;
+          }
+
+          // === SCHEDULE ===
+          if (ev.schedule?.items?.length) {
+            if (y > 250) { doc.addPage(); y = 20; }
+            doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(255, 42, 95);
+            doc.text("Horarios (Run of Show)", 14, y); y += 7;
+            doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(100, 100, 100);
+            doc.text("Hora", 14, y); doc.text("Actividad", 50, y); doc.text("Notas", 120, y); y += 4;
+            doc.setDrawColor(255, 42, 95); doc.line(14, y, 196, y); y += 4;
+            doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(60, 60, 60);
+            ev.schedule.items.forEach(item => {
+              if (y > 275) { doc.addPage(); y = 20; }
+              doc.text(item.time || '-', 14, y); doc.text(item.activity || '-', 50, y); doc.text(item.notes || '-', 120, y); y += 5;
+            });
+            y += 4;
+          }
+
+          doc.save("Hoja_de_Ruta_Completa_" + (ev.title || 'evento') + ".pdf");
+        }
+
+        function generateContractPDF() {
+          const html = contractTemplate.value
+            .replace(/\{\{ARTISTA\}\}/g, activeArtist.value.name)
+            .replace(/\{\{FECHA\}\}/g, formatDateLong(currentEvent.value.start_date))
+            .replace(/\{\{CIUDAD\}\}/g, currentEvent.value.city)
+            .replace(/\{\{LUGAR\}\}/g, currentEvent.value.venue_name)
+            .replace(/\{\{GARANTIA\}\}/g, currentEvent.value.guarantee_amount + " €");
+          const { jsPDF } = window.jspdf; const doc = new jsPDF();
+          doc.html(html, {
+            callback: (d) => { d.save(`Contrato_${currentEvent.value.title}.pdf`); },
+            x: 15, y: 15, width: 180
+          });
+        }
+
+        const financesGlobal = computed(() => { let incomes = 0; events.value.forEach(e => { if(e.status !== 'blocked') incomes += e.guarantee_amount || 0; }); return { incomes }; });
+        function getEventColor(status) { const colors = { confirmed: '#2ECC71', reserve: '#3498DB', option: '#F59E0B', cancelled: '#95A5A6', band_work: '#9B59B6', holidays: '#E74C3C', conflict: '#E67E22' }; return colors[status] || '#9ca3af'; }
+        function formatCurrency(a) { return `${Number(a).toLocaleString('es-ES')} €`; }
+        function formatDateLong(d) { if(!d)return''; const dt=new Date(d); return dt.toLocaleDateString('es-ES', { day:'numeric', month:'long', year:'numeric'}); }
+        function formatDate(d) { if(!d)return''; const p=d.split('-'); return `${p[2]}/${p[1]}/${p[0]}`; }
+
+        onMounted(async () => {
+          const loggedIn = await checkSession();
+          if (loggedIn) {
+            await loadInitialData();
+            // Detect redirect from Google OAuth
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('google') === 'connected') {
+              await checkGoogleStatus();
+              window.history.replaceState({}, '', window.location.pathname);
+            }
+          }
+          if (contractEditorRef.value) contractEditorRef.value.innerHTML = contractTemplate.value;
+        });
+
+        watch(showAuditLog, (val) => { if (val) loadAuditLogs(); });
+
+        return {
+          sidebarCollapsed, globalView, showArtistDropdown, collaborators, activeEditCol, hasPerm, hasPermission,
+          isLoginView, loginEmail, loginPassword, loginError, loginLoading,
+          sessionUser, sessionPermissions, handleLogin, handleLogout, googleLoginError, handleGoogleLogin,
+          artists, activeArtist, events, crew, activeEditCrew, timelineMonths, currentEvent, activeEventTab, eventTabs, drawerOpen, newEventForm, contractTemplate, contractEditorRef, financesGlobal,
+          currentYear, currentMonth, currentMonthName, calendarMode, statusFilters, newTaskText,
+          openGlobalView, openEvent, openEventEditor, createNewEventFromDrawer, saveCurrentEvent, selectArtist, getEventColor, formatCurrency, formatDateLong, formatDate, uploadArtistImage, uploadContractImage, changeYear, changeMonth, addHotel, addTravelStage, addScheduleItem, addGuest, addEventContact, addAccountingSplit, addTaskToForm, addSingleTask, applyTaskTemplate, uploadEventFile, deleteEventFile, generateContractPDF, exportRoadmapPDF, exportFullRoadmapPDF, importContractDocx, uploadTechnicalRider, uploadTechnicalContraRider, deleteTechnicalRider, deleteTechnicalContraRider, openCrewEditor, closeCrewEditor, saveCrewMember, addCrewMember, addVehicle, deleteCrewMember,
+          // Google Calendar
+          googleStatus, googleEmail, googleLastSync, showSyncInfo, syncToggleEnabled, toggleGoogleSync,templatesList, templateCategories, templateFilterType, templateFilterCategory, templateSearch,
+          showTemplateEditor, editTemplate, templateForm, templateSaving, saveTemplate, openTemplateEditor,
+          showTemplatePreview, previewTemplate, openTemplatePreview,
+          showTemplatePicker, pickerType, openTemplatePicker, applyTemplate,
+          loadTemplates, loadTemplateCategories, duplicateTemplate, deleteTemplate,
+          templateEventAssignments, loadEventTemplateAssignments,
+          templateFileSelected, templateFileType, templateExtractedContent,
+          handleTemplateFileUpload, removeTemplateFile,
+          checkGoogleStatus, connectGoogle, syncGoogle, disconnectGoogle, toggleGoogleSync,
+          // Roles & Permissions Matrix
+          rolesList, activeRoleId, activeRoleName, activeRoleDesc, activeRoleIsSystem,
+          modulesList, moduleSearch, matrixPermissions, allMatrixActions, actionLabels, filteredModules,
+          selectRole, saveRole, createRole, deleteRole, copyFromRole,
+          matrixHasPerm, matrixToggle, matrixSelectAll, matrixReadOnly, matrixFullAccess, matrixClear, isActionValid,
+          saveCollaboratorChanges,
+          // Audit
+          showAuditLog, auditLogs, auditTotal, loadAuditLogs
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

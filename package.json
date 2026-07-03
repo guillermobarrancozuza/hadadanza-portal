@@ -1,0 +1,26 @@
+{
+  "name": "hadadanza-giras-portal",
+  "version": "1.0.0",
+  "description": "Un portal MVP premium de planificación, almacenamiento de archivos, contratos y balances financieros para la banda HADADANZA",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "better-sqlite3": "^12.11.1",
+    "body-parser": "^1.20.5",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^4.22.2",
+    "express-session": "^1.19.0",
+    "googleapis": "^173.0.0",
+    "mammoth": "^1.12.0",
+    "multer": "^2.2.0",
+    "node-cron": "^4.5.0",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "pdf-parse": "^2.4.5"
+  },
+  "private": true
+}
