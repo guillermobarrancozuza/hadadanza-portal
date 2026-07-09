@@ -169,47 +169,59 @@ app.get('/api/v1/events/by-artist/:artistId', requireAuth, (req, res) => {
   res.json({ events: readDb().events.filter(e => e.artist_id === req.params.artistId) });
 });
 
-app.post('/api/v1/events', requireAuth, (req, res) => {
-  const db = readDb();
-  const newEvent = {
-    id: 'evt-' + Date.now(),
-    artist_id: req.body.artist_id,
-    title: req.body.title || 'Nuevo Concierto',
-    venue_name: req.body.venue_name || '',
-    city: req.body.city || '',
-    country_code: req.body.country_code || 'ESP',
-    start_date: req.body.start_date,
-    end_date: req.body.end_date || req.body.start_date,
-    status: req.body.status || 'option',
-    deal_type: req.body.deal_type || 'flat_fee',
-    guarantee_amount: Number(req.body.guarantee_amount) || 0,
-    notes: req.body.notes || '',
-    lat: req.body.lat ? Number(req.body.lat) : null,
-    lng: req.body.lng ? Number(req.body.lng) : null,
-    has_contract: !!req.body.has_contract,
-    has_payout: !!req.body.has_payout,
-    basic_info: { contact: '', company: '', phone: '', email: '', notes: '', cache: 0, conditions: '', deal_type: '', is_own_production: false, internal_booker: '', internal_production: '', show_time: '', more_artists: '', is_announced: 'Sí', ticket_type: 'Pago', attendance: '', roadmap_notes: '' },
-    event_contacts: [], tasks: [], files: [], contracts: [],
-    ticketing: { price: '', sales_url: '', physical_points: '', total_tickets: '', status: '', notes: '' },
-    guests: { notes: '', available: 0, list: [] },
-    accommodation: [],
-    hospitality: { diet: '', catering: '', camerino: '', merch: '', notes: '' },
-    travel: { road_manager: '', runner: '', agency_rep: '', stages: [] },
-    tour_party: { members: [], vehicles: [] },
-    technical: { contra_rider_status: '', contra_rider_notes: '', backline_notes: '', stage_size: '', platforms: '', stagehands: '', stage_manager: '', stage_manager_phone: '', stage_manager_email: '', sound_company: '', sound_rep: '', sound_phone: '', sound_email: '', light_rep: '', light_phone: '', light_email: '', notes: '', rider_file: null, contra_rider_files: [] },
-    schedule: { notes: '', items: [] },
-    accounting: { expenses: [], incomes: [], splits: [], decimals: false },
-    promotion: { strategy: '', press_kit_status: '', press_kit_date: '', posters: '', poster_rep: '', shipping: '', status: '', press_contact: '', press_phone: '', press_email: '', interviews: '' }
-  };
-  db.events.push(newEvent); writeDb(db);
-  enqueueSync(newEvent.id, 'create');
-  res.status(201).json({ success: true, event: newEvent });
+app.post('/api/v1/events', requireAuth, async (req, res) => {
+  try {
+    const db = readDb();
+    const newEvent = {
+      id: 'evt-' + Date.now(),
+      artist_id: req.body.artist_id,
+      title: req.body.title || 'Nuevo Concierto',
+      venue_name: req.body.venue_name || '',
+      city: req.body.city || '',
+      country_code: req.body.country_code || 'ESP',
+      start_date: req.body.start_date,
+      end_date: req.body.end_date || req.body.start_date,
+      status: req.body.status || 'option',
+      deal_type: req.body.deal_type || 'flat_fee',
+      guarantee_amount: Number(req.body.guarantee_amount) || 0,
+      notes: req.body.notes || '',
+      lat: req.body.lat ? Number(req.body.lat) : null,
+      lng: req.body.lng ? Number(req.body.lng) : null,
+      has_contract: !!req.body.has_contract,
+      has_payout: !!req.body.has_payout,
+      basic_info: { contact: '', company: '', phone: '', email: '', notes: '', cache: 0, conditions: '', deal_type: '', is_own_production: false, internal_booker: '', internal_production: '', show_time: '', more_artists: '', is_announced: 'Sí', ticket_type: 'Pago', attendance: '', roadmap_notes: '' },
+      event_contacts: [], tasks: [], files: [], contracts: [],
+      ticketing: { price: '', sales_url: '', physical_points: '', total_tickets: '', status: '', notes: '' },
+      guests: { notes: '', available: 0, list: [] },
+      accommodation: [],
+      hospitality: { diet: '', catering: '', camerino: '', merch: '', notes: '' },
+      travel: { road_manager: '', runner: '', agency_rep: '', stages: [] },
+      tour_party: { members: [], vehicles: [] },
+      technical: { contra_rider_status: '', contra_rider_notes: '', backline_notes: '', stage_size: '', platforms: '', stagehands: '', stage_manager: '', stage_manager_phone: '', stage_manager_email: '', sound_company: '', sound_rep: '', sound_phone: '', sound_email: '', light_rep: '', light_phone: '', light_email: '', notes: '', rider_file: null, contra_rider_files: [] },
+      schedule: { notes: '', items: [] },
+      accounting: { expenses: [], incomes: [], splits: [], decimals: false },
+      promotion: { strategy: '', press_kit_status: '', press_kit_date: '', posters: '', poster_rep: '', shipping: '', status: '', press_contact: '', press_phone: '', press_email: '', interviews: '' }
+    };
+    db.events.push(newEvent);
+    const written = writeDb(db);
+    if (!written) { return res.status(500).json({ error: 'Error al guardar en disco' }); }
+    enqueueSync(newEvent.id, 'create');
+    res.status(201).json({ success: true, event: newEvent });
+  } catch (e) {
+    console.error('POST /api/v1/events error:', e.message);
+    res.status(500).json({ error: 'Error interno del servidor', detail: e.message });
+  }
 });
 
-app.put('/api/v1/events/:eventId', requireAuth, (req, res) => {
-  const db = readDb(); const index = db.events.findIndex(e => e.id === req.params.eventId);
-  if (index !== -1) { db.events[index] = { ...db.events[index], ...req.body }; writeDb(db); enqueueSync(req.params.eventId, 'update'); res.json({ success: true, event: db.events[index] }); }
-  else res.status(404).json({ error: 'Not found' });
+app.put('/api/v1/events/:eventId', requireAuth, async (req, res) => {
+  try {
+    const db = readDb(); const index = db.events.findIndex(e => e.id === req.params.eventId);
+    if (index !== -1) { db.events[index] = { ...db.events[index], ...req.body }; writeDb(db); enqueueSync(req.params.eventId, 'update'); res.json({ success: true, event: db.events[index] }); }
+    else res.status(404).json({ error: 'Not found' });
+  } catch (e) {
+    console.error('PUT /api/v1/events error:', e.message);
+    res.status(500).json({ error: 'Error interno del servidor', detail: e.message });
+  }
 });
 
 app.delete('/api/v1/events/:eventId', requireAuth, (req, res) => {

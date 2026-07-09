@@ -1494,14 +1494,24 @@
 
         async function createNewEventFromDrawer() {
            const payload = { ...newEventForm, artist_id: activeArtist.value.id, guarantee_amount: 0 };
-           const res = await fetch(`${API_BASE}/events`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-           if(res.ok) {
-             const created = await res.json();
-             await loadArtistEvents(activeArtist.value.id);
-             openEvent(created.event); 
-             drawerOpen.value = false;
-           } else {
-             alert("Error guardando el evento");
+           try {
+             const res = await fetch(`${API_BASE}/events`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+             if(res.ok) {
+               const created = await res.json();
+               if (created.success) {
+                 await loadArtistEvents(activeArtist.value.id);
+                 openEvent(created.event); 
+                 drawerOpen.value = false;
+               } else {
+                 alert(created.error || 'Error guardando el evento');
+               }
+             } else {
+               const errText = await res.text().catch(() => 'Error desconocido');
+               alert('Error guardando el evento: ' + errText);
+             }
+           } catch(e) {
+             console.error('createNewEventFromDrawer error:', e);
+             alert('Error al crear evento: ' + e.message);
            }
         }
 
