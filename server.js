@@ -43,21 +43,64 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Initialize SQLite (auth, permissions, audit)
 initDatabase();
 
-// ── DB HELPERS (remain unchanged for business data) ──
+// ── DB HELPERS ────────────────────────────────────────
+function migrateImages(db) {
+  for (const artist of db.artists || []) {
+    if (!artist.image_url) continue;
+    const filename = path.basename(artist.image_url);
+    const destPath = path.join(STORAGE_DIR, filename);
+    if (fs.existsSync(destPath)) continue; // already exists
+    // Try seed/images/ (committed to git for Railway deploys)
+    const seedPath = path.join(__dirname, 'seed', 'images', filename);
+    if (fs.existsSync(seedPath)) {
+      try { fs.copyFileSync(seedPath, destPath); console.log('[migrate] Copied image: ' + filename); } catch (_) {}
+      continue;
+    }
+    // Try old root storage/ (pre-Volume migration)
+    const oldImagePath = path.join(__dirname, 'storage', filename);
+    if (fs.existsSync(oldImagePath)) {
+      try { fs.copyFileSync(oldImagePath, destPath); console.log('[migrate] Copied image: ' + filename); } catch (_) {}
+    }
+  }
+}
+
 function readDb() {
-  try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); }
-  catch (err) {
-    // Fallback: try root db.json (for Railway migration)
-    const oldPath = path.join(__dirname, 'db.json');
-    try {
-      if (fs.existsSync(oldPath)) {
-        const data = JSON.parse(fs.readFileSync(oldPath, 'utf8'));
-        writeDb(data); // migrate to storage/
+  // 1) Try the Volume storage file
+  try {
+    const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    if (data.artists && data.artists.length > 0) {
+      return data; // valid data
+    }
+    // File exists but has no artists → try to migrate
+  } catch (_) {}
+
+  // 2) Fallback to root db.json (committed to git)
+  const rootDb = path.join(__dirname, 'db.json');
+  try {
+    if (fs.existsSync(rootDb)) {
+      const data = JSON.parse(fs.readFileSync(rootDb, 'utf8'));
+      if (data.artists && data.artists.length > 0) {
+        writeDb(data);
+        migrateImages(data);
         return data;
       }
-    } catch (_) { /* ignore */ }
-    return { artists: [], events: [], crew: [], collaborators: [], contacts: [], task_templates: [], contract_templates: [], files: [], subscriptions: {} };
-  }
+    }
+  } catch (_) {}
+
+  // 3) Fallback to db.json.backup
+  const backupDb = path.join(__dirname, 'db.json.backup');
+  try {
+    if (fs.existsSync(backupDb)) {
+      const data = JSON.parse(fs.readFileSync(backupDb, 'utf8'));
+      if (data.artists && data.artists.length > 0) {
+        writeDb(data);
+        migrateImages(data);
+        return data;
+      }
+    }
+  } catch (_) {}
+
+  return { artists: [], events: [], crew: [], collaborators: [], contacts: [], task_templates: [], contract_templates: [], files: [], subscriptions: {} };
 }
 function writeDb(data) {
   try {

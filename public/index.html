@@ -1493,7 +1493,8 @@
         }
 
         async function createNewEventFromDrawer() {
-           const payload = { ...newEventForm, artist_id: activeArtist.value.id, guarantee_amount: 0 };
+            if (!activeArtist.value?.id) { alert('Selecciona un artista antes de crear un evento'); return; }
+            const payload = { ...newEventForm, artist_id: activeArtist.value.id, guarantee_amount: 0 };
            try {
              const res = await fetch(`${API_BASE}/events`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
              if(res.ok) {
