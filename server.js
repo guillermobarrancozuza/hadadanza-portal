@@ -13,6 +13,7 @@ const cron = require('node-cron');
 
 // ── APP SETUP ────────────────────────────────────────
 const app = express();
+app.set('trust proxy', 1); // Railway HTTPS behind proxy
 const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'storage', 'db.json');
 const STORAGE_DIR = path.join(__dirname, 'storage');
@@ -304,6 +305,12 @@ async function processSyncQueue() {
 // Every 15 minutes during working hours (8:00-22:00)
 cron.schedule('*/15 8-22 * * *', () => {
   processSyncQueue().catch(e => console.error('Cron sync error:', e));
+});
+
+// ── GLOBAL ERROR HANDLER (catches middleware errors) ──
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err.message);
+  res.status(500).json({ error: 'Error interno del servidor', detail: err.message });
 });
 
 // ── START ────────────────────────────────────────────
