@@ -58,7 +58,7 @@ function getLoginAuthUrl() {
   });
 }
 
-function getCalendarAuthUrl(emailHint) {
+function getCalendarAuthUrl(emailHint, state) {
   const oauth2 = getOAuth2Client();
   const params = {
     access_type: 'offline',
@@ -67,6 +67,7 @@ function getCalendarAuthUrl(emailHint) {
     prompt: '',
   };
   if (emailHint) params.login_hint = emailHint;
+  if (state) params.state = state;
   return oauth2.generateAuthUrl(params);
 }
 

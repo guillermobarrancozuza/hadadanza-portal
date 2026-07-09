@@ -28,18 +28,17 @@ router.get('/auth/google', (req, res) => {
     return res.redirect('/?google=already-connected');
   }
 
-  // Need calendar scope — use incremental auth with email hint if available
-  const authUrl = googleCal.getCalendarAuthUrl(user?.google_account_email || undefined);
-  req.session.pendingGoogleUserId = req.session.userId;
-  req.session.save(() => {
-    res.redirect(authUrl);
-  });
+  // Need calendar scope — pass userId in state to survive across redirect
+  const authUrl = googleCal.getCalendarAuthUrl(user?.google_account_email || undefined, req.session.userId);
+  res.redirect(authUrl);
 });
 
 // GET /api/v1/auth/google/callback — Callback de OAuth (login o calendar)
 router.get('/auth/google/callback', async (req, res) => {
-  const { code, error: oauthError } = req.query;
-  const isLoginFlow = !req.session?.userId && !req.session?.pendingGoogleUserId;
+  const { code, error: oauthError, state } = req.query;
+  // Use userId from OAuth state if session was lost during redirect
+  const stateUserId = state && !state.includes('%') ? state : null;
+  const isLoginFlow = !req.session?.userId && !stateUserId;
 
   if (oauthError) {
     console.error('Google OAuth error:', oauthError);
@@ -101,7 +100,10 @@ router.get('/auth/google/callback', async (req, res) => {
       });
     } else {
       // ── CALENDAR SYNC FLOW ──
-      const userId = req.session.pendingGoogleUserId || req.session.userId;
+      const userId = stateUserId || req.session?.userId;
+      if (!userId) {
+        return res.redirect('/?google=error&msg=Session+lost');
+      }
       googleCal.saveTokens(userId, tokens);
       const db = getDb();
       db.prepare(`
@@ -109,7 +111,15 @@ router.get('/auth/google/callback', async (req, res) => {
         WHERE id = ?
       `).run(email, userId);
       logAudit(req, 'google_connected', 'collaborator', userId, null, { email });
-      delete req.session.pendingGoogleUserId;
+      // Restore session if needed
+      if (!req.session?.userId) {
+        const user = db.prepare('SELECT * FROM collaborators WHERE id = ?').get(userId);
+        if (user) {
+          req.session.userId = user.id;
+          req.session.userName = user.name;
+          req.session.userRole = user.role_id;
+        }
+      }
       req.session.save(() => {
         res.redirect('/?google=connected');
       });
@@ -128,11 +138,8 @@ router.get('/google/request-calendar-scope', requireAuth, (req, res) => {
   if (googleCal.hasCalendarScope(req.session.userId)) {
     return res.json({ success: true, message: 'Ya tienes permisos de calendario' });
   }
-  const authUrl = googleCal.getCalendarAuthUrl(user?.google_account_email || undefined);
-  req.session.pendingGoogleUserId = req.session.userId;
-  req.session.save(() => {
-    res.json({ success: true, authUrl });
-  });
+  const authUrl = googleCal.getCalendarAuthUrl(user?.google_account_email || undefined, req.session.userId);
+  res.json({ success: true, authUrl });
 });
 
 // GET /api/v1/google/status — Estado de la conexión
