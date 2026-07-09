@@ -1499,8 +1499,10 @@
              if(res.ok) {
                const created = await res.json();
                if (created.success) {
-                 await loadArtistEvents(activeArtist.value.id);
-                 openEvent(created.event); 
+                  if (activeArtist.value?.id) {
+                    await loadArtistEvents(activeArtist.value.id);
+                  }
+                  openEvent(created.event); 
                  drawerOpen.value = false;
                } else {
                  alert(created.error || 'Error guardando el evento');
@@ -1519,7 +1521,9 @@
           if(!hasPerm('can_edit_calendar') || !currentEvent.value) return;
           const url = `${API_BASE}/events/${currentEvent.value.id}`;
           await fetch(url, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(currentEvent.value) });
-          await loadArtistEvents(activeArtist.value.id);
+          if (activeArtist.value?.id) {
+            await loadArtistEvents(activeArtist.value.id);
+          }
           currentEvent.value = events.value.find(e => e.id === currentEvent.value.id) || currentEvent.value;
           alert('¡Guardado!');
         }
