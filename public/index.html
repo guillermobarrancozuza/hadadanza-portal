@@ -277,7 +277,13 @@
         </div>
       </template>
       <template v-if="globalView === 'collaborators'">
-        <div class="p-8 h-full flex flex-col"><h1 class="text-2xl font-semibold mb-6">Colaboradores</h1>
+        <div class="p-8 h-full flex flex-col">
+          <div class="flex items-center justify-between mb-6">
+            <h1 class="text-2xl font-semibold">Colaboradores</h1>
+            <button @click="showNewColModal = true" class="bg-brand text-white px-4 py-2 rounded text-sm font-semibold flex items-center space-x-2 hover:bg-brand-hover transition-colors">
+              <i class="fa-solid fa-plus"></i><span>Nuevo colaborador</span>
+            </button>
+          </div>
           <div class="flex flex-1 space-x-6 overflow-hidden">
             <div class="w-1/3 flex flex-col space-y-4"><div class="flex-1 overflow-y-auto bg-[#1e1e1e] border border-bandit-borderDark rounded-lg divide-y divide-bandit-borderDark custom-scrollbar"><div v-for="c in collaborators" :key="c.id" @click="activeEditCol = c" class="p-4 flex items-center justify-between cursor-pointer hover:bg-[#25282b]" :class="{'bg-[#2a2d30]': activeEditCol && activeEditCol.id === c.id}"><div class="flex items-center space-x-3"><div class="w-8 h-8 rounded-full bg-brand/20 text-brand flex items-center justify-center font-bold text-sm">{{ c.name.charAt(0) }}</div><div><p class="text-sm font-semibold text-slate-200">{{ c.name }}</p><p class="text-[10px] text-slate-500">{{ c.email }}</p></div></div><i class="fa-solid fa-pen text-xs text-slate-500"></i></div></div></div>
             <div class="w-2/3 bg-[#232528] border border-bandit-borderDark rounded-lg overflow-y-auto custom-scrollbar flex flex-col" v-if="activeEditCol">
@@ -1019,6 +1025,47 @@
         </div>
       </div>
     </div></transition>
+
+    <!-- NEW COLLABORATOR MODAL -->
+    <transition name="fade"><div v-show="showNewColModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" @click.self="showNewColModal=false">
+      <div class="w-full max-w-md bg-[#1e1e1e] border border-bandit-borderDark rounded-lg flex flex-col overflow-hidden">
+        <div class="px-6 py-4 border-b border-bandit-borderDark flex items-center justify-between bg-[#232528]">
+          <h3 class="font-bold text-sm">Nuevo colaborador</h3>
+          <button @click="showNewColModal=false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-4">
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-slate-400 uppercase">Nombre *</label>
+            <input type="text" v-model="newColForm.name" class="form-input focus:border-brand" placeholder="Nombre completo">
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-slate-400 uppercase">Email *</label>
+            <input type="email" v-model="newColForm.email" class="form-input focus:border-brand" placeholder="email@ejemplo.com">
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-slate-400 uppercase">Contraseña</label>
+            <input type="password" v-model="newColForm.password" class="form-input" placeholder="Dejar vacío para sin contraseña">
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-slate-400 uppercase">Rol</label>
+            <select v-model="newColForm.role_id" class="form-input">
+              <option value="">Seleccionar rol...</option>
+              <option v-for="r in rolesList" :key="r.id" :value="r.id">{{ r.name }}</option>
+            </select>
+          </div>
+          <div class="text-xs text-slate-500 bg-[#232528] rounded p-3">
+            <i class="fa-solid fa-info-circle mr-1"></i>
+            El colaborador recibirá un email con las instrucciones de acceso.
+          </div>
+        </div>
+        <div class="px-6 py-4 border-t border-bandit-borderDark flex justify-end space-x-3 bg-[#232528]">
+          <button @click="showNewColModal=false" class="px-4 py-2 rounded text-xs font-semibold border border-[#3c3f43] text-slate-300 hover:bg-[#2a2d30]">Cancelar</button>
+          <button @click="createCollaborator" :disabled="!newColForm.name || !newColForm.email || colCreating" class="bg-brand text-white px-4 py-2 rounded text-xs font-semibold hover:bg-brand-hover disabled:opacity-50 flex items-center space-x-1.5">
+            <i v-if="colCreating" class="fa-solid fa-spinner fa-spin"></i><span>{{ colCreating ? 'Creando...' : 'Crear colaborador' }}</span>
+          </button>
+        </div>
+      </div>
+    </div></transition>
   </div>
   </template>
 
@@ -1044,6 +1091,9 @@
 
         const collaborators = ref([]);
         const activeEditCol = ref(null);
+        const showNewColModal = ref(false);
+        const newColForm = reactive({ name: '', email: '', password: '', role_id: '' });
+        const colCreating = ref(false);
 
         // ── GOOGLE CALENDAR ───────────────────────────────
         const googleStatus = ref('disconnected');
@@ -1801,6 +1851,38 @@
           } catch (e) { alert('Error: ' + e.message); }
         }
 
+        // ── CREATE COLLABORATOR ──────────────────────────────
+        async function createCollaborator() {
+          if (!newColForm.name || !newColForm.email) return;
+          colCreating.value = true;
+          try {
+            const res = await fetch(`${API_BASE}/collaborators`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: newColForm.name,
+                email: newColForm.email,
+                password: newColForm.password || undefined,
+                role_id: newColForm.role_id || undefined
+              })
+            });
+            if (res.ok) {
+              showNewColModal.value = false;
+              newColForm.name = '';
+              newColForm.email = '';
+              newColForm.password = '';
+              newColForm.role_id = '';
+              // Reload collaborators list
+              const data = await fetch(`${API_BASE}/collaborators`);
+              if (data.ok) collaborators.value = (await data.json()).collaborators || [];
+              alert('Colaborador creado correctamente');
+            } else {
+              const err = await res.json();
+              alert('Error: ' + (err.error || 'Error al crear colaborador'));
+            }
+          } catch (e) { alert('Error: ' + e.message); }
+          colCreating.value = false;
+        }
+
         async function importContractDocx(event) {
           const file = event.target.files[0]; if (!file) return;
           try {
@@ -2059,7 +2141,7 @@
         watch(showAuditLog, (val) => { if (val) loadAuditLogs(); });
 
         return {
-          sidebarCollapsed, globalView, showArtistDropdown, collaborators, activeEditCol, hasPerm, hasPermission,
+          sidebarCollapsed, globalView, showArtistDropdown, collaborators, activeEditCol, showNewColModal, newColForm, colCreating, createCollaborator, hasPerm, hasPermission,
           isLoginView, loginEmail, loginPassword, loginError, loginLoading,
           sessionUser, sessionPermissions, handleLogin, handleLogout, googleLoginError, handleGoogleLogin,
           artists, activeArtist, events, crew, activeEditCrew, timelineMonths, currentEvent, activeEventTab, eventTabs, drawerOpen, newEventForm, contractTemplate, contractEditorRef, financesGlobal,

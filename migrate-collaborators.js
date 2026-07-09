@@ -10,7 +10,7 @@ const path = require('path');
 const bcrypt = require('bcrypt');
 const { initDatabase, getDb, closeDb } = require('./db/sqlite');
 
-const DB_JSON_PATH = path.join(__dirname, 'db.json');
+const DB_JSON_PATH = path.join(__dirname, 'storage', 'db.json');
 
 async function migrate() {
   console.log('=== Migración de colaboradores: db.json → SQLite ===\n');

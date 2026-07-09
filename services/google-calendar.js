@@ -80,6 +80,25 @@ async function getUserEmailFromTokens(tokens) {
   } catch { return null; }
 }
 
+async function getUserInfo(tokens) {
+  try {
+    const { google } = require('googleapis');
+    const oauth2Client = getOAuth2Client();
+    oauth2Client.setCredentials({ access_token: tokens.access_token });
+    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+    const { data } = await oauth2.userinfo.get();
+    return {
+      email: data.email || null,
+      name: data.name || data.given_name || data.email || 'Usuario Google',
+      givenName: data.given_name || '',
+      familyName: data.family_name || '',
+      picture: data.picture || null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function getUserGrantedScopes(userId) {
   const db = getDb();
   const row = db.prepare('SELECT scope FROM google_tokens WHERE user_id = ?').get(userId);
@@ -312,6 +331,7 @@ module.exports = {
   revokeAccess,
   listEvents,
   getUserEmailFromTokens,
+  getUserInfo,
   hasCalendarScope,
   getUserGrantedScopes,
 };

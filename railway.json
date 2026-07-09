@@ -1,6 +1,9 @@
 {
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "NIXPACKS",
+    "nixpacksConfig": {
+      "nodeVersion": "20"
+    }
   },
   "deploy": {
     "startCommand": "node server.js",

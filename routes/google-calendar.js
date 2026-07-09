@@ -65,10 +65,25 @@ router.get('/auth/google/callback', async (req, res) => {
     if (isLoginFlow) {
       // ── LOGIN FLOW ──
       const db = getDb();
-      const user = db.prepare('SELECT * FROM collaborators WHERE email = ?').get(email);
+      let user = db.prepare('SELECT * FROM collaborators WHERE email = ?').get(email);
+
       if (!user) {
-        return res.redirect('/?google=no-access&email=' + encodeURIComponent(email));
+        // ── AUTO-CREATE USER ──
+        const googleInfo = await googleCal.getUserInfo(tokens);
+        const displayName = googleInfo?.name || email.split('@')[0] || 'Usuario Google';
+        const givenName = googleInfo?.givenName || '';
+        const familyName = googleInfo?.familyName || '';
+
+        const newId = 'col-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+        db.prepare(`
+          INSERT INTO collaborators (id, name, last_name, email, role_id, status, google_account_email, google_calendar_status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(newId, displayName, familyName || givenName, email, 'role-collaborator', 'Activo', email, 'disconnected');
+
+        user = db.prepare('SELECT * FROM collaborators WHERE id = ?').get(newId);
+        console.log(`✅ Auto-created collaborator: ${email} → ${displayName}`);
       }
+
       if (user.status !== 'Activo') {
         return res.redirect('/?google=no-access&reason=disabled');
       }
@@ -272,7 +287,7 @@ function getAppEvent(eventId) {
   try {
     const fs = require('fs');
     const path = require('path');
-    const db = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'db.json'), 'utf8'));
+    const db = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'storage', 'db.json'), 'utf8'));
     return db.events?.find(e => e.id === eventId) || null;
   } catch {
     return null;

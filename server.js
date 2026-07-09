@@ -14,7 +14,7 @@ const cron = require('node-cron');
 // ── APP SETUP ────────────────────────────────────────
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DB_FILE = path.join(__dirname, 'db.json');
+const DB_FILE = path.join(__dirname, 'storage', 'db.json');
 const STORAGE_DIR = path.join(__dirname, 'storage');
 
 if (!fs.existsSync(STORAGE_DIR)) fs.mkdirSync(STORAGE_DIR, { recursive: true });

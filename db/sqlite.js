@@ -2,7 +2,7 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const bcrypt = require('bcrypt');
 
-const DB_PATH = path.join(__dirname, '..', 'hadadanza.db');
+const DB_PATH = path.join(__dirname, '..', 'storage', 'hadadanza.db');
 let db;
 
 function initDatabase() {
