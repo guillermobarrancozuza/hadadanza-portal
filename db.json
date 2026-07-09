@@ -1,0 +1,818 @@
+{
+  "artists": [
+    {
+      "id": "c49414e5-a138-422c-a370-a06424c05e9d",
+      "name": "HADADANZA",
+      "image_url": "/api/v1/storage/artist_c49414e5-a138-422c-a370-a06424c05e9d_1783074063882.jpg",
+      "currency": "EUR"
+    }
+  ],
+  "crew": [
+    {
+      "id": "cr-1",
+      "name": "Momo",
+      "role": "Batería",
+      "type": "Fijo",
+      "phone": "626840051",
+      "email": "guillermob.composer@...",
+      "birthdate": "",
+      "dni": "",
+      "passport": "",
+      "diet": "Sin restricciones",
+      "rooming": "Individual"
+    },
+    {
+      "id": "cr-2",
+      "name": "Dave",
+      "role": "Voz",
+      "type": "Fijo",
+      "phone": "654115632",
+      "email": "david.simmartinez@...",
+      "birthdate": "",
+      "dni": "",
+      "passport": "",
+      "diet": "Vegetariano",
+      "rooming": "Doble"
+    },
+    {
+      "id": "cr-3",
+      "name": "Victoria",
+      "role": "Voz",
+      "type": "Fijo",
+      "phone": "610163071",
+      "email": "victoriamenesesmart...",
+      "birthdate": "",
+      "dni": "",
+      "passport": "",
+      "diet": "",
+      "rooming": ""
+    },
+    {
+      "id": "cr-4",
+      "name": "Alberto",
+      "role": "Bajo",
+      "type": "Fijo",
+      "phone": "696173941",
+      "email": "spronta@gmail.com",
+      "birthdate": "",
+      "dni": "",
+      "passport": "",
+      "diet": "",
+      "rooming": ""
+    },
+    {
+      "id": "cr-5",
+      "name": "Barbara",
+      "role": "Flauta",
+      "type": "Fijo",
+      "phone": "698554331",
+      "email": "barbara.flauta@...",
+      "birthdate": "",
+      "dni": "",
+      "passport": "",
+      "diet": "",
+      "rooming": ""
+    },
+    {
+      "id": "cr-6",
+      "name": "Jotas",
+      "role": "Guitarra",
+      "type": "Fijo",
+      "phone": "614452691",
+      "email": "",
+      "birthdate": "",
+      "dni": "",
+      "passport": "",
+      "diet": "",
+      "rooming": ""
+    },
+    {
+      "id": "cr-7",
+      "name": "Rafa",
+      "role": "Runner",
+      "type": "Ocasional",
+      "phone": "670691501",
+      "email": "carmonacruzrafael@...",
+      "birthdate": "",
+      "dni": "",
+      "passport": "",
+      "diet": "",
+      "rooming": ""
+    },
+    {
+      "id": "cr-8",
+      "name": "Angel Sound",
+      "role": "Técnico",
+      "type": "Ocasional",
+      "phone": "610984751",
+      "email": "hola@cerbatanaprod...",
+      "birthdate": "",
+      "dni": "",
+      "passport": "",
+      "diet": "",
+      "rooming": ""
+    }
+  ],
+  "collaborators": [
+    {
+      "id": "col-admin",
+      "name": "Guillermo Barranco Zuza",
+      "role": "Mánager",
+      "email": "guillermob.composer@gmail.com",
+      "status": "Activo",
+      "permissions": {
+        "artist_profile": {
+          "view": true,
+          "edit": true
+        },
+        "artist_collaborators": {
+          "view": true,
+          "edit": true
+        },
+        "artist_concerts": {
+          "view": true,
+          "edit": true
+        },
+        "artist_finances": {
+          "view": true,
+          "edit": true
+        },
+        "artist_crew": {
+          "view": true,
+          "edit": true
+        },
+        "concert_general": {
+          "view": true,
+          "edit": true
+        },
+        "concert_finances": {
+          "view": true,
+          "edit": true
+        },
+        "concert_files": {
+          "view": true,
+          "edit": true
+        }
+      }
+    }
+  ],
+  "contacts": [
+    {
+      "id": "con-1",
+      "name": "Marcos Promotor",
+      "email": "marcos@leyendasdelrock.es",
+      "phone": "600111222",
+      "company": "Leyendas del Rock"
+    }
+  ],
+  "events": [
+    {
+      "id": "evt-had-01",
+      "artist_id": "c49414e5-a138-422c-a370-a06424c05e9d",
+      "title": "Leyendas del rock",
+      "venue_name": "Polideportivo Municipal",
+      "city": "Villena",
+      "country_code": "ESP",
+      "start_date": "2026-08-05",
+      "end_date": "2026-08-05",
+      "status": "confirmed",
+      "deal_type": "flat_fee",
+      "guarantee_amount": 6000,
+      "notes": "Escenario principal.",
+      "lat": 38.6367,
+      "lng": -0.8711,
+      "has_contract": true,
+      "has_payout": false,
+      "basic_info": {
+        "contact": "",
+        "company": "",
+        "phone": "",
+        "email": "",
+        "notes": "",
+        "cache": 0,
+        "conditions": "",
+        "deal_type": "",
+        "is_own_production": false,
+        "internal_booker": "",
+        "internal_production": "",
+        "show_time": "",
+        "more_artists": "",
+        "is_announced": "Sí",
+        "ticket_type": "Pago",
+        "attendance": "",
+        "roadmap_notes": ""
+      },
+      "event_contacts": [],
+      "tasks": [],
+      "files": [],
+      "contracts": [],
+      "ticketing": {
+        "price": "",
+        "sales_url": "",
+        "physical_points": "",
+        "total_tickets": "",
+        "status": "",
+        "notes": ""
+      },
+      "guests": {
+        "notes": "",
+        "available": 20,
+        "list": []
+      },
+      "accommodation": [],
+      "hospitality": {
+        "diet": "Cena para 12",
+        "catering": "Bebidas frías, hidromiel",
+        "camerino": "Espejo, toallas",
+        "merch": "Mesa grande",
+        "notes": ""
+      },
+      "travel": {
+        "road_manager": "Rafa",
+        "runner": "",
+        "stages": []
+      },
+      "tour_party": {
+        "members": [
+          "cr-1",
+          "cr-2",
+          "cr-3",
+          "cr-4",
+          "cr-5",
+          "cr-6"
+        ],
+        "vehicles": []
+      },
+      "technical": {
+        "contra_rider_status": "Aprobado",
+        "stage_manager": "",
+        "sound_company": "",
+        "notes": ""
+      },
+      "schedule": {
+        "notes": "",
+        "items": []
+      },
+      "accounting": {
+        "expenses": [],
+        "incomes": [],
+        "splits": [],
+        "decimals": false
+      },
+      "promotion": {
+        "strategy": "",
+        "press_kit_status": "Enviado",
+        "posters": ""
+      }
+    },
+    {
+      "id": "evt-had-02",
+      "artist_id": "c49414e5-a138-422c-a370-a06424c05e9d",
+      "title": "Cáceres",
+      "venue_name": "Plaza Mayor",
+      "city": "Cáceres",
+      "country_code": "ESP",
+      "start_date": "2026-06-06",
+      "end_date": "2026-06-06",
+      "status": "confirmed",
+      "deal_type": "flat_fee",
+      "guarantee_amount": 4000,
+      "notes": "",
+      "lat": 39.4753,
+      "lng": -6.3724,
+      "has_contract": false,
+      "has_payout": false,
+      "basic_info": {
+        "contact": "",
+        "company": "",
+        "phone": "",
+        "email": "",
+        "notes": "",
+        "cache": 0,
+        "conditions": "",
+        "deal_type": "",
+        "is_own_production": false,
+        "internal_booker": "",
+        "internal_production": "",
+        "show_time": "",
+        "more_artists": "",
+        "is_announced": "Sí",
+        "ticket_type": "Pago",
+        "attendance": "",
+        "roadmap_notes": ""
+      },
+      "event_contacts": [],
+      "tasks": [],
+      "files": [],
+      "contracts": [],
+      "ticketing": {},
+      "guests": {},
+      "accommodation": [],
+      "hospitality": {},
+      "travel": {},
+      "tour_party": {},
+      "technical": {},
+      "schedule": {
+        "notes": "",
+        "items": []
+      },
+      "accounting": {
+        "expenses": [],
+        "incomes": [],
+        "splits": [],
+        "decimals": false
+      },
+      "promotion": {}
+    },
+    {
+      "id": "evt-had-03",
+      "artist_id": "c49414e5-a138-422c-a370-a06424c05e9d",
+      "title": "Hadadanza + Kaelis - Sevilla",
+      "venue_name": "Sala X",
+      "city": "Sevilla",
+      "country_code": "ESP",
+      "start_date": "2026-05-16",
+      "end_date": "2026-05-16",
+      "status": "confirmed",
+      "deal_type": "versus_percentage",
+      "guarantee_amount": 2500,
+      "notes": "",
+      "lat": 37.3891,
+      "lng": -5.9845,
+      "has_contract": true,
+      "has_payout": true,
+      "basic_info": {
+        "contact": "",
+        "company": "",
+        "phone": "",
+        "email": "",
+        "notes": "",
+        "cache": 0,
+        "conditions": "",
+        "deal_type": "",
+        "is_own_production": false,
+        "internal_booker": "",
+        "internal_production": "",
+        "show_time": "",
+        "more_artists": "",
+        "is_announced": "Sí",
+        "ticket_type": "Pago",
+        "attendance": "",
+        "roadmap_notes": ""
+      },
+      "event_contacts": [],
+      "tasks": [],
+      "files": [],
+      "contracts": [],
+      "ticketing": {},
+      "guests": {},
+      "accommodation": [],
+      "hospitality": {},
+      "travel": {},
+      "tour_party": {},
+      "technical": {},
+      "schedule": {
+        "notes": "",
+        "items": []
+      },
+      "accounting": {
+        "expenses": [],
+        "incomes": [],
+        "splits": [],
+        "decimals": false
+      },
+      "promotion": {}
+    },
+    {
+      "id": "evt-had-04",
+      "artist_id": "c49414e5-a138-422c-a370-a06424c05e9d",
+      "title": "Folk & Metal Fest - Valencia",
+      "venue_name": "Rock City",
+      "city": "Valencia",
+      "country_code": "ESP",
+      "start_date": "2026-05-23",
+      "end_date": "2026-05-23",
+      "status": "confirmed",
+      "deal_type": "flat_fee",
+      "guarantee_amount": 3000,
+      "notes": "",
+      "lat": 39.4699,
+      "lng": -0.3763,
+      "has_contract": false,
+      "has_payout": false,
+      "basic_info": {
+        "contact": "",
+        "company": "",
+        "phone": "",
+        "email": "",
+        "notes": "",
+        "cache": 0,
+        "conditions": "",
+        "deal_type": "",
+        "is_own_production": false,
+        "internal_booker": "",
+        "internal_production": "",
+        "show_time": "",
+        "more_artists": "",
+        "is_announced": "Sí",
+        "ticket_type": "Pago",
+        "attendance": "",
+        "roadmap_notes": ""
+      },
+      "event_contacts": [],
+      "tasks": [],
+      "files": [],
+      "contracts": [],
+      "ticketing": {},
+      "guests": {},
+      "accommodation": [],
+      "hospitality": {},
+      "travel": {},
+      "tour_party": {},
+      "technical": {},
+      "schedule": {
+        "notes": "",
+        "items": []
+      },
+      "accounting": {
+        "expenses": [],
+        "incomes": [],
+        "splits": [],
+        "decimals": false
+      },
+      "promotion": {}
+    },
+    {
+      "id": "evt-had-05",
+      "artist_id": "c49414e5-a138-422c-a370-a06424c05e9d",
+      "title": "Tolkien Tage Alemania",
+      "venue_name": "Geldern",
+      "city": "Geldern",
+      "country_code": "GER",
+      "start_date": "2026-05-30",
+      "end_date": "2026-05-30",
+      "status": "confirmed",
+      "deal_type": "plus_deal",
+      "guarantee_amount": 8000,
+      "notes": "",
+      "lat": 51.5167,
+      "lng": 6.3333,
+      "has_contract": false,
+      "has_payout": false,
+      "basic_info": {
+        "contact": "",
+        "company": "",
+        "phone": "",
+        "email": "",
+        "notes": "",
+        "cache": 0,
+        "conditions": "",
+        "deal_type": "",
+        "is_own_production": false,
+        "internal_booker": "",
+        "internal_production": "",
+        "show_time": "",
+        "more_artists": "",
+        "is_announced": "Sí",
+        "ticket_type": "Pago",
+        "attendance": "",
+        "roadmap_notes": ""
+      },
+      "event_contacts": [],
+      "tasks": [],
+      "files": [],
+      "contracts": [],
+      "ticketing": {},
+      "guests": {},
+      "accommodation": [],
+      "hospitality": {},
+      "travel": {},
+      "tour_party": {},
+      "technical": {},
+      "schedule": {
+        "notes": "",
+        "items": []
+      },
+      "accounting": {
+        "expenses": [],
+        "incomes": [],
+        "splits": [],
+        "decimals": false
+      },
+      "promotion": {}
+    },
+    {
+      "id": "evt-1783064364046",
+      "artist_id": "c49414e5-a138-422c-a370-a06424c05e9d",
+      "title": "fdsafsad",
+      "venue_name": "dsad",
+      "city": "dsads",
+      "country_code": "ESP",
+      "start_date": "2026-04-13",
+      "end_date": "2026-04-13",
+      "status": "confirmed",
+      "deal_type": "flat_fee",
+      "guarantee_amount": 0,
+      "notes": "",
+      "lat": null,
+      "lng": null,
+      "has_contract": false,
+      "has_payout": false,
+      "basic_info": {
+        "contact": "",
+        "company": "",
+        "phone": "",
+        "email": "",
+        "notes": "",
+        "cache": 0,
+        "conditions": "",
+        "deal_type": "",
+        "is_own_production": false,
+        "internal_booker": "",
+        "internal_production": "",
+        "show_time": "",
+        "more_artists": "",
+        "is_announced": "Sí",
+        "ticket_type": "Pago",
+        "attendance": "",
+        "roadmap_notes": ""
+      },
+      "event_contacts": [],
+      "tasks": [],
+      "files": [
+        {
+          "id": "file-1783077220852",
+          "name": "PLAN DE RODAJE LA MONTAÑA.pdf",
+          "physical_name": "file-1783077220852_PLANDERODAJELAMONTAA.pdf",
+          "uploaded_at": "2026-07-03T11:13:40.853Z",
+          "size": "0.10 MB",
+          "type": "application/pdf"
+        },
+        {
+          "id": "file-1783078348124",
+          "name": "PLAN DE RODAJE REY DORADO.pdf",
+          "physical_name": "file-1783078348124_PLANDERODAJEREYDORADO.pdf",
+          "uploaded_at": "2026-07-03T11:32:28.130Z",
+          "size": "0.17 MB",
+          "type": "application/pdf"
+        }
+      ],
+      "contracts": [],
+      "ticketing": {
+        "price": "",
+        "sales_url": "",
+        "physical_points": "",
+        "total_tickets": "",
+        "status": "",
+        "notes": ""
+      },
+      "guests": {
+        "notes": "",
+        "available": 0,
+        "list": [
+          {
+            "name": "",
+            "companions": 0,
+            "invited_by": "",
+            "notes": ""
+          }
+        ]
+      },
+      "accommodation": [
+        {
+          "name": "",
+          "address": "",
+          "phone": "",
+          "status": "Por reservar",
+          "rooming": "",
+          "cost": 0,
+          "check_in": "",
+          "check_out": ""
+        }
+      ],
+      "hospitality": {
+        "diet": "",
+        "catering": "",
+        "camerino": "",
+        "merch": "",
+        "notes": ""
+      },
+      "travel": {
+        "road_manager": "",
+        "runner": "",
+        "agency_rep": "",
+        "stages": [
+          {
+            "origin": "",
+            "destination": "",
+            "date": "",
+            "transport": "Furgoneta",
+            "departure_time": "",
+            "arrival_time": ""
+          }
+        ]
+      },
+      "tour_party": {
+        "members": [
+          "cr-1",
+          "cr-2",
+          "cr-3",
+          "cr-4",
+          "cr-5",
+          "cr-6",
+          "cr-7",
+          "cr-8"
+        ],
+        "vehicles": []
+      },
+      "technical": {
+        "contra_rider_status": "En negociación",
+        "contra_rider_notes": "",
+        "backline_notes": "",
+        "stage_size": "",
+        "platforms": "",
+        "stagehands": "",
+        "stage_manager": "",
+        "stage_manager_phone": "",
+        "stage_manager_email": "",
+        "sound_company": "",
+        "sound_rep": "",
+        "sound_phone": "",
+        "sound_email": "",
+        "light_rep": "",
+        "light_phone": "",
+        "light_email": "",
+        "notes": "",
+        "rider_file": null,
+        "contra_rider_files": []
+      },
+      "schedule": {
+        "notes": "",
+        "items": [
+          {
+            "time": "",
+            "activity": "",
+            "notes": ""
+          }
+        ]
+      },
+      "accounting": {
+        "expenses": [],
+        "incomes": [],
+        "splits": [],
+        "decimals": false
+      },
+      "promotion": {
+        "strategy": "",
+        "press_kit_status": "",
+        "press_kit_date": "",
+        "posters": "",
+        "poster_rep": "",
+        "shipping": "",
+        "status": "",
+        "press_contact": "",
+        "press_phone": "",
+        "press_email": "",
+        "interviews": ""
+      }
+    },
+    {
+      "id": "evt-1783072548251",
+      "artist_id": "c49414e5-a138-422c-a370-a06424c05e9d",
+      "title": "3EWFDSADS",
+      "venue_name": "FDSFDS",
+      "city": "FSFD",
+      "country_code": "ESP",
+      "start_date": "2026-06-12",
+      "end_date": "2026-06-12",
+      "status": "holidays",
+      "deal_type": "flat_fee",
+      "guarantee_amount": 0,
+      "notes": "",
+      "lat": null,
+      "lng": null,
+      "has_contract": false,
+      "has_payout": false,
+      "basic_info": {
+        "contact": "",
+        "company": "",
+        "phone": "",
+        "email": "",
+        "notes": "",
+        "cache": 0,
+        "conditions": "",
+        "deal_type": "",
+        "is_own_production": false,
+        "internal_booker": "",
+        "internal_production": "",
+        "show_time": "",
+        "more_artists": "",
+        "is_announced": "Sí",
+        "ticket_type": "Pago",
+        "attendance": "",
+        "roadmap_notes": ""
+      },
+      "event_contacts": [],
+      "tasks": [],
+      "files": [],
+      "contracts": [],
+      "ticketing": {
+        "price": "",
+        "sales_url": "",
+        "physical_points": "",
+        "total_tickets": "",
+        "status": "",
+        "notes": ""
+      },
+      "guests": {
+        "notes": "",
+        "available": 0,
+        "list": []
+      },
+      "accommodation": [],
+      "hospitality": {
+        "diet": "",
+        "catering": "",
+        "camerino": "",
+        "merch": "",
+        "notes": ""
+      },
+      "travel": {
+        "road_manager": "",
+        "runner": "",
+        "agency_rep": "",
+        "stages": []
+      },
+      "tour_party": {
+        "members": [],
+        "vehicles": []
+      },
+      "technical": {
+        "contra_rider_status": "",
+        "contra_rider_notes": "",
+        "backline_notes": "",
+        "stage_size": "",
+        "platforms": "",
+        "stagehands": "",
+        "stage_manager": "",
+        "stage_manager_phone": "",
+        "stage_manager_email": "",
+        "sound_company": "",
+        "sound_rep": "",
+        "sound_phone": "",
+        "sound_email": "",
+        "light_rep": "",
+        "light_phone": "",
+        "light_email": "",
+        "notes": "",
+        "rider_file": null,
+        "contra_rider_files": []
+      },
+      "schedule": {
+        "notes": "",
+        "items": []
+      },
+      "accounting": {
+        "expenses": [],
+        "incomes": [],
+        "splits": [],
+        "decimals": false
+      },
+      "promotion": {
+        "strategy": "",
+        "press_kit_status": "",
+        "press_kit_date": "",
+        "posters": "",
+        "poster_rep": "",
+        "shipping": "",
+        "status": "",
+        "press_contact": "",
+        "press_phone": "",
+        "press_email": "",
+        "interviews": ""
+      }
+    }
+  ],
+  "task_templates": [
+    {
+      "id": "tpl-1",
+      "name": "Concierto El Flautista",
+      "items": [
+        "Afinar instrumentos",
+        "Preparar merchandising oficial",
+        "Enviar rider técnico"
+      ]
+    }
+  ],
+  "contract_templates": [
+    {
+      "id": "ct-had-01",
+      "name": "Contrato de Concierto HADADANZA PRO",
+      "text": "CONTRATO DE ACTUACIÓN MUSICAL (HADADANZA)\\n\\nReunidos por una parte el promotor organizador del evento de {{LUGAR}} en la ciudad de {{CIUDAD}}, y por otra parte el representante legal del grupo musical {{ARTISTA}}.\\n\\nAmbas partes acuerdan de mutuo acuerdo las siguientes cláusulas:\\n\\n1. El grupo HADADANZA realizará una presentación en vivo el día {{FECHA}}.\\n2. La compensación pactada en carácter de garantía fija será de {{GARANTIA}}.\\n3. El organizador se compromete a proveer los requerimientos de sonido del rider técnico oficial.\\n\\nFirmado electrónicamente por ambas partes para constancia."
+    }
+  ],
+  "files": [],
+  "subscriptions": {
+    "c49414e5-a138-422c-a370-a06424c05e9d": true
+  }
+}

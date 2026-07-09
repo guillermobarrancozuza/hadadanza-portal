@@ -25,7 +25,7 @@ Este es un **Portal Web Full-Stack y Sistema de Gestión** 100% funcional desarr
 Asegúrate de tener **Node.js** instalado en tu computadora.
 
 ### Paso 1: Instalar dependencias del servidor
-Abre una terminal en el directorio raíz del proyecto (`C:\Users\M0M0\Desktop\App2`) y ejecuta:
+Abre una terminal en el directorio raíz del proyecto (`C:\Users\M0M0\Desktop\App2`) y ejecuta:.
 ```bash
 npm install
 ```
