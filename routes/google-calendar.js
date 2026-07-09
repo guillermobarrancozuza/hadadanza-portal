@@ -24,7 +24,8 @@ router.get('/auth/google', (req, res) => {
 
   // Check if user already has tokens with calendar scope
   if (googleCal.hasCalendarScope(req.session.userId)) {
-    // Already has calendar scope — just trigger sync
+    // Fix inconsistent status
+    db.prepare("UPDATE collaborators SET google_calendar_status = 'synced' WHERE id = ?").run(req.session.userId);
     return res.redirect('/?google=already-connected');
   }
 
@@ -166,8 +167,8 @@ router.get('/google/status', requireAuth, (req, res) => {
 router.post('/google/sync', requireAuth, async (req, res) => {
   const db = getDb();
   const userId = req.session.userId;
-  const user = db.prepare('SELECT google_calendar_status FROM collaborators WHERE id = ?').get(userId);
-  if (!user || user.google_calendar_status === 'disconnected') {
+  // Check by actual tokens instead of status (status may be out of sync)
+  if (!googleCal.hasCalendarScope(userId)) {
     return res.status(400).json({ error: 'Google Calendar no conectado' });
   }
 
