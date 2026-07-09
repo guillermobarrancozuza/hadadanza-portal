@@ -58,10 +58,10 @@
     <div class="h-full w-full flex items-center justify-center bg-bandit-bgDark">
     <div class="w-full max-w-sm mx-auto p-8">
       <div class="text-center mb-8">
-        <div class="w-20 h-20 bg-brand/10 rounded-full flex items-center justify-center mx-auto mb-4">
-          <span class="text-brand text-3xl font-black">H</span>
+        <div class="w-24 h-24 rounded-full overflow-hidden mx-auto mb-4 border-2 border-brand/30 shadow-lg shadow-brand/10">
+          <img :src="artistPortada.image_url || '/api/v1/storage/artist_c49414e5-a138-422c-a370-a06424c05e9d_1783074063882.jpg'" class="w-full h-full object-cover" alt="HADADANZA">
         </div>
-        <h1 class="text-2xl font-bold text-white">HADADANZA</h1>
+        <h1 class="text-2xl font-bold text-white">{{ artistPortada.name }}</h1>
         <p class="text-slate-400 text-sm mt-1">Portal de Gestión de Giras</p>
       </div>
 
@@ -1083,6 +1083,7 @@
 
         // ── SESSION STATE ────────────────────────────────
         const isLoginView = ref(true);
+        const artistPortada = ref({ name: 'HADADANZA', image_url: '' });
         const loginEmail = ref('');
         const loginPassword = ref('');
         const loginError = ref('');
@@ -2141,6 +2142,11 @@
         function formatDate(d) { if(!d)return''; const p=d.split('-'); return `${p[2]}/${p[1]}/${p[0]}`; }
 
         onMounted(async () => {
+          // Load portada image for login screen (no auth needed)
+          try {
+            const portRes = await fetch(`${API_BASE}/public/portada`);
+            if (portRes.ok) artistPortada.value = await portRes.json();
+          } catch (_) {}
           const loggedIn = await checkSession();
           if (loggedIn) {
             await loadInitialData();
@@ -2158,7 +2164,7 @@
 
         return {
           sidebarCollapsed, globalView, showArtistDropdown, collaborators, activeEditCol, showNewColModal, newColForm, colCreating, createCollaborator, hasPerm, hasPermission,
-          isLoginView, loginEmail, loginPassword, loginError, loginLoading,
+          isLoginView, artistPortada, loginEmail, loginPassword, loginError, loginLoading,
           sessionUser, sessionPermissions, handleLogin, handleLogout, googleLoginError, handleGoogleLogin,
           artists, activeArtist, events, crew, activeEditCrew, timelineMonths, currentEvent, activeEventTab, eventTabs, drawerOpen, newEventForm, contractTemplate, contractEditorRef, financesGlobal,
           currentYear, currentMonth, currentMonthName, calendarMode, statusFilters, newTaskText,

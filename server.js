@@ -124,6 +124,13 @@ function enqueueSync(eventId, action) {
   } catch (e) { console.error('Enqueue sync error:', e.message); }
 }
 
+// ── PUBLIC (no auth) ──────────────────────────────────
+app.get('/api/v1/public/portada', (req, res) => {
+  const db = readDb();
+  const artist = db.artists && db.artists.length > 0 ? db.artists[0] : null;
+  res.json({ name: artist?.name || 'HADADANZA', image_url: artist?.image_url || '' });
+});
+
 // ── AUTH ROUTES ──────────────────────────────────────
 const authRoutes = require('./routes/auth');
 app.use('/api/v1/auth', authRoutes);
