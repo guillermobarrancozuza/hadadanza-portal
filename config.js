@@ -1,4 +1,5 @@
 require('dotenv').config();
+const crypto = require('crypto');
 
 const config = {
   port: process.env.PORT || 3000,
@@ -14,7 +15,7 @@ const config = {
       'openid',
       'email',
     ],
-    tokenEncryptionKey: process.env.GOOGLE_TOKEN_ENCRYPTION_KEY || 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1',
+    tokenEncryptionKey: process.env.GOOGLE_TOKEN_ENCRYPTION_KEY || crypto.createHash('sha256').update(process.env.SESSION_SECRET || 'hadadanza-default-secret').digest('hex'),
   },
 };
 
