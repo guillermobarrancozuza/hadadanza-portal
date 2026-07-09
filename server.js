@@ -45,11 +45,27 @@ initDatabase();
 // ── DB HELPERS (remain unchanged for business data) ──
 function readDb() {
   try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); }
-  catch (err) { return { artists: [], events: [], crew: [], collaborators: [], contacts: [], task_templates: [], contract_templates: [], files: [], subscriptions: {} }; }
+  catch (err) {
+    // Fallback: try root db.json (for Railway migration)
+    const oldPath = path.join(__dirname, 'db.json');
+    try {
+      if (fs.existsSync(oldPath)) {
+        const data = JSON.parse(fs.readFileSync(oldPath, 'utf8'));
+        writeDb(data); // migrate to storage/
+        return data;
+      }
+    } catch (_) { /* ignore */ }
+    return { artists: [], events: [], crew: [], collaborators: [], contacts: [], task_templates: [], contract_templates: [], files: [], subscriptions: {} };
+  }
 }
 function writeDb(data) {
-  try { fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8'); return true; }
-  catch (err) { return false; }
+  try {
+    const dir = path.dirname(DB_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  }
+  catch (err) { console.error('writeDb error:', err.message); return false; }
 }
 
 // ── SYNC QUEUE HELPER ──────────────────────────────

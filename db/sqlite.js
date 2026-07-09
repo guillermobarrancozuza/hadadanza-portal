@@ -232,6 +232,16 @@ function initDatabase() {
     }
   }
 
+  // ── SEED PERMISSIONS FOR COLLABORATOR (view only) ──
+  const colPermCount = db.prepare('SELECT COUNT(*) as cnt FROM role_permissions WHERE role_id = ?').get('role-collaborator').cnt;
+  if (colPermCount === 0) {
+    const allModules = db.prepare('SELECT id FROM modules').all();
+    const insRP = db.prepare('INSERT OR IGNORE INTO role_permissions (role_id, module_id, actions) VALUES (?, ?, ?)');
+    for (const m of allModules) {
+      insRP.run('role-collaborator', m.id, JSON.stringify(['view']));
+    }
+  }
+
   // ── SEED DEFAULT ADMIN USER ─────────────────────────
   const adminCount = db.prepare("SELECT COUNT(*) as cnt FROM collaborators WHERE id = 'col-admin'").get().cnt;
   if (adminCount === 0) {
