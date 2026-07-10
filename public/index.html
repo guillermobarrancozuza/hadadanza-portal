@@ -1061,7 +1061,7 @@
 
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   <script>
-    const { createApp, ref, reactive, computed, onMounted, watch } = Vue;
+    const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = Vue;
 
     createApp({
       setup() {
@@ -1441,19 +1441,26 @@
             await loadRoles();
             // Check Google Calendar status
             await checkGoogleStatus();
-            // Scroll to current month
-            await nextTick();
-            const now = new Date();
-            const currentMonthId = `mc-m-${now.getFullYear()}-${now.getMonth()}`;
+          } catch (e) {
+            console.error("Error loading data:", e);
+          }
+        }
+
+        // Scroll to current month when timeline renders
+        watch(timelineMonths, () => {
+          const now = new Date();
+          const currentMonthId = `mc-m-${now.getFullYear()}-${now.getMonth()}`;
+          const scrollToMonth = () => {
             const monthEl = document.getElementById(currentMonthId);
             const container = timelineRef.value;
             if (monthEl && container) {
               container.scrollLeft = monthEl.offsetLeft - container.offsetLeft - 40;
             }
-          } catch (e) {
-            console.error("Error loading data:", e);
-          }
-        }
+          };
+          scrollToMonth();
+          // Fallback: retry after DOM is fully painted
+          setTimeout(scrollToMonth, 300);
+        }, { once: true });
 
         async function loadArtistEvents(id) {
           const res = await fetch(`${API_BASE}/events/by-artist/${id}`); 
