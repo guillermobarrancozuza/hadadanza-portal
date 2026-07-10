@@ -244,6 +244,7 @@ function initDatabase() {
     const allModules = db.prepare('SELECT id FROM modules').all();
     const insRP = db.prepare('INSERT OR IGNORE INTO role_permissions (role_id, module_id, actions) VALUES (?, ?, ?)');
     for (const m of allModules) {
+      if (['roles', 'settings'].includes(m.id)) continue;
       insRP.run('role-collaborator', m.id, JSON.stringify(['view']));
     }
   }

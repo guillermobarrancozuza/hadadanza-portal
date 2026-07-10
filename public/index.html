@@ -121,7 +121,7 @@
         <a href="#" @click.prevent="openGlobalView('calendar')" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'calendar' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-regular fa-calendar w-6"></i> Calendario</a>
         <a href="#" @click.prevent="openGlobalView('crew')" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'crew' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-solid fa-users w-6"></i> Crew</a>
         <a href="#" @click.prevent="openGlobalView('collaborators')" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'collaborators' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-regular fa-address-card w-6"></i> Colaboradores</a>
-        <a href="#" @click.prevent="openGlobalView('roles')" v-if="hasPermission('roles','view')" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'roles' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-solid fa-lock w-6"></i> Roles</a>
+        <a href="#" @click.prevent="openGlobalView('roles')" v-if="isAdmin" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'roles' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-solid fa-lock w-6"></i> Roles</a>
         <a href="#" @click.prevent="openGlobalView('economy')" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'economy' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-solid fa-dollar-sign w-6"></i> Resumen económico</a>
                 <a href="#" @click.prevent="openGlobalView('templates')" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'templates' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-regular fa-file-lines w-6"></i> Archivos</a>
 <a href="#" @click.prevent="showAuditLog = true" v-if="sessionUser?.role_id === 'role-admin'" class="flex items-center px-5 py-2.5 text-sm transition-colors text-slate-600 hover:text-slate-400 border-l-4 border-transparent"><i class="fa-solid fa-history w-6"></i> Auditoría</a>
@@ -343,7 +343,7 @@
       </template>
 
       <!-- ROLES VIEW -->
-      <template v-if="globalView === 'roles'">
+      <template v-if="globalView === 'roles' && isAdmin">
         <div class="p-8 h-full flex flex-col"><h1 class="text-2xl font-semibold mb-6">Roles y Permisos</h1>
           <div class="flex flex-1 space-x-6 overflow-hidden">
             <div class="w-1/3 flex flex-col space-y-4">
