@@ -504,6 +504,7 @@
           </div>
           <div class="flex items-center space-x-3 text-xs text-slate-400">
             <button v-if="hasPerm('can_edit_calendar')" @click="saveCurrentEvent" class="bg-brand hover:bg-brand-hover text-white px-4 py-1.5 rounded font-semibold shadow-sm text-sm">Guardar Cambios</button>
+            <button v-if="hasPerm('can_edit_calendar')" @click="deleteCurrentEvent" class="bg-red-500/20 hover:bg-red-500/30 text-red-400 px-3 py-1.5 rounded font-semibold text-sm border border-red-500/30"><i class="fa-solid fa-trash-can mr-1"></i> Eliminar</button>
             <label class="flex items-center space-x-1.5 text-xs cursor-pointer select-none border-l border-[#3c3f43] pl-3" :class="currentEvent.roadmap_completed ? 'text-green-400' : 'text-slate-400'">
               <input type="checkbox" v-model="currentEvent.roadmap_completed" class="accent-green-500 w-3.5 h-3.5">
               <span>Hoja de ruta: <span class="font-bold" :class="currentEvent.roadmap_completed ? 'text-green-400' : 'text-slate-500'">{{ currentEvent.roadmap_completed ? 'Hecha' : 'Pendiente' }}</span></span>
@@ -1399,14 +1400,14 @@
         const currentMonthName = computed(() => new Date(currentYear.value, currentMonth.value, 1).toLocaleDateString('es-ES', { month: 'long' }));
 
         const timelineMonths = computed(() => {
-          const months = []; const startMonth = calendarMode.value === 'yearly' ? 0 : currentMonth.value; const endMonth = calendarMode.value === 'yearly' ? 11 : currentMonth.value;
+          const months = []; const todayStr = new Date().toISOString().split('T')[0]; const startMonth = calendarMode.value === 'yearly' ? 0 : currentMonth.value; const endMonth = calendarMode.value === 'yearly' ? 11 : currentMonth.value;
           for (let m = startMonth; m <= endMonth; m++) {
             const y = currentYear.value; const daysInMonth = new Date(y, m + 1, 0).getDate(); const days = [];
             for (let d = 1; d <= daysInMonth; d++) {
               const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
               const dayName = new Date(y, m, d).toLocaleDateString('es-ES', { weekday: 'short' }).substring(0, 3).toUpperCase();
               let dayEvents = events.value.filter(e => e.start_date === dateStr && statusFilters[e.status]);
-              days.push({ dayNum: d, dayName, dateStr, isToday: false, events: dayEvents });
+              days.push({ dayNum: d, dayName, dateStr, isToday: dateStr === todayStr, events: dayEvents });
             }
             months.push({ id: `m-${y}-${m}`, year: y, name: new Date(y, m, 1).toLocaleDateString('es-ES', { month: 'long' }), days });
           } return months;
@@ -1479,6 +1480,22 @@
           newEventForm.start_date = dateStr || new Date().toISOString().split('T')[0];
           newEventForm.status = 'option';
           drawerOpen.value = true;
+        }
+
+        async function deleteCurrentEvent() {
+          if (!currentEvent.value) return;
+          if (!confirm(`¿Eliminar el evento "${currentEvent.value.title || 'sin título'}" permanentemente?\n\nEsta acción no se puede deshacer.`)) return;
+          try {
+            const res = await fetch(`${API_BASE}/events/${currentEvent.value.id}`, { method: 'DELETE' });
+            if (res.ok) {
+              if (activeArtist.value?.id) await loadArtistEvents(activeArtist.value.id);
+              globalView.value = 'calendar';
+              currentEvent.value = null;
+            } else {
+              const err = await res.json();
+              alert('Error: ' + (err.error || 'No se pudo eliminar el evento'));
+            }
+          } catch (e) { alert('Error al eliminar: ' + e.message); }
         }
 
         async function createNewEventFromDrawer() {
@@ -2188,7 +2205,7 @@
           sessionUser, sessionPermissions, handleLogin, handleLogout, googleLoginError, handleGoogleLogin,
           artists, activeArtist, events, crew, activeEditCrew, timelineMonths, currentEvent, activeEventTab, eventTabs, drawerOpen, newEventForm, contractTemplate, contractEditorRef, financesGlobal,
           currentYear, currentMonth, currentMonthName, calendarMode, statusFilters, newTaskText,
-          openGlobalView, openEvent, openEventEditor, createNewEventFromDrawer, saveCurrentEvent, selectArtist, getEventColor, formatCurrency, formatDateLong, formatDate, uploadArtistImage, uploadContractImage, changeYear, changeMonth, addHotel, addTravelStage, addScheduleItem, addGuest, addEventContact, addAccountingSplit, addTaskToForm, addSingleTask, applyTaskTemplate, uploadEventFile, deleteEventFile, generateContractPDF, exportRoadmapPDF, exportFullRoadmapPDF, importContractDocx, uploadTechnicalRider, uploadTechnicalContraRider, deleteTechnicalRider, deleteTechnicalContraRider, openCrewEditor, closeCrewEditor, saveCrewMember, addCrewMember, addVehicle, deleteCrewMember,
+          openGlobalView, openEvent, openEventEditor, createNewEventFromDrawer, saveCurrentEvent, deleteCurrentEvent, selectArtist, getEventColor, formatCurrency, formatDateLong, formatDate, uploadArtistImage, uploadContractImage, changeYear, changeMonth, addHotel, addTravelStage, addScheduleItem, addGuest, addEventContact, addAccountingSplit, addTaskToForm, addSingleTask, applyTaskTemplate, uploadEventFile, deleteEventFile, generateContractPDF, exportRoadmapPDF, exportFullRoadmapPDF, importContractDocx, uploadTechnicalRider, uploadTechnicalContraRider, deleteTechnicalRider, deleteTechnicalContraRider, openCrewEditor, closeCrewEditor, saveCrewMember, addCrewMember, addVehicle, deleteCrewMember,
           // Google Calendar
           googleStatus, googleEmail, openGoogleSettings,templatesList, templateCategories, templateFilterType, templateFilterCategory, templateSearch,
           showTemplateEditor, editTemplate, templateForm, templateSaving, saveTemplate, openTemplateEditor,
