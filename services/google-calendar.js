@@ -15,6 +15,21 @@ const STATUS_COLOR_MAP = {
 };
 const DEFAULT_COLOR_ID = 8; // Gray
 
+// ── STATUS → EMOJI MAP (para Google Calendar summary) ─
+const STATUS_EMOJI_MAP = {
+  confirmed: '🟢',
+  reserve:   '🔵',
+  option:    '🟡',
+  cancelled: '⚫',
+  band_work: '🟣',
+  holidays:  '🔴',
+  conflict:  '🟠',
+};
+
+function getStatusEmoji(status) {
+  return STATUS_EMOJI_MAP[status] || '⚪';
+}
+
 function getColorId(status) {
   return STATUS_COLOR_MAP[status] ?? DEFAULT_COLOR_ID;
 }
@@ -231,10 +246,10 @@ function buildEventBody(appEvent) {
   ].filter(Boolean).join('\n');
 
   const body = {
-    summary: `${appEvent.title || 'Concierto'}${appEvent.venue_name ? ' — ' + appEvent.venue_name : ''}`,
+    summary: `${getStatusEmoji(appEvent.status)} ${appEvent.title || 'Concierto'}${appEvent.venue_name ? ' — ' + appEvent.venue_name : ''}`,
     description,
     location: `${appEvent.venue_name || ''}, ${appEvent.city || ''}, ${appEvent.country_code || ''}`,
-    colorId: String(getColorId(appEvent.status)),
+    colorId: String(DEFAULT_COLOR_ID), // Siempre gris neutro; el emoji indica el estado
   };
 
   if (isAllDay) {
@@ -271,8 +286,18 @@ async function pushEventToCalendar(appEvent, googleEventId = null) {
     }
     return { success: true, googleEventId: result.data.id };
   } catch (e) {
-    console.error('Google Calendar push error:', e.message);
-    return { success: false, error: e.message };
+    const statusCode = e.response?.status || 0;
+    const apiError = e.response?.data?.error;
+    console.error(`Google Calendar push error [${statusCode}]:`, e.message);
+    console.error('  CalendarId:', calendarId);
+    console.error('  Status:', appEvent.status);
+    if (apiError) {
+      console.error('  API error:', JSON.stringify(apiError));
+      if (apiError.errors) {
+        apiError.errors.forEach((err, i) => console.error(`    [${i}] ${err.reason}: ${err.message} (domain: ${err.domain})`));
+      }
+    }
+    return { success: false, error: e.message, statusCode, apiError: apiError?.message };
   }
 }
 
@@ -287,8 +312,14 @@ async function deleteEventFromCalendar(googleEventId) {
     });
     return { success: true };
   } catch (e) {
-    console.error('Google Calendar delete error:', e.message);
-    return { success: false, error: e.message };
+    const statusCode = e.response?.status || 0;
+    const apiError = e.response?.data?.error;
+    console.error(`Google Calendar delete error [${statusCode}]:`, e.message);
+    console.error('  EventId:', googleEventId);
+    if (apiError) {
+      console.error('  API error:', JSON.stringify(apiError));
+    }
+    return { success: false, error: e.message, statusCode };
   }
 }
 
@@ -328,7 +359,9 @@ module.exports = {
   pushEventToCalendar,
   deleteEventFromCalendar,
   revokeGlobalAccess,
-  // Colores
+  // Colores / Emojis
   getColorId,
   STATUS_COLOR_MAP,
+  STATUS_EMOJI_MAP,
+  getStatusEmoji,
 };
