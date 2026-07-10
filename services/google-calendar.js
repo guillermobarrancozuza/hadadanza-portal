@@ -256,8 +256,11 @@ function buildEventBody(appEvent) {
   };
 
   if (isAllDay) {
+    const endDt = endDate === startDate
+      ? new Date(new Date(endDate + 'T00:00:00Z').getTime() + 86400000).toISOString().slice(0, 10)
+      : endDate;
     body.start = { date: startDate, timeZone: 'Europe/Madrid' };
-    body.end = { date: endDate, timeZone: 'Europe/Madrid' };
+    body.end = { date: endDt, timeZone: 'Europe/Madrid' };
   } else {
     body.start = { dateTime: `${startDate}T${startTime}`, timeZone: 'Europe/Madrid' };
     body.end = { dateTime: `${endDate}T${endTime}`, timeZone: 'Europe/Madrid' };
