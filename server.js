@@ -34,7 +34,8 @@ sessionDb.exec(`CREATE TABLE IF NOT EXISTS sessions (
   data TEXT NOT NULL,
   expires_at INTEGER NOT NULL
 )`);
-const sessionStore = {
+const { EventEmitter } = require('events');
+const sessionStore = Object.assign(new EventEmitter(), {
   get(sid, cb) {
     try {
       const row = sessionDb.prepare('SELECT data FROM sessions WHERE sid = ? AND expires_at > ?').get(sid, Date.now());
@@ -64,7 +65,7 @@ const sessionStore = {
       cb(null);
     } catch (e) { cb(e); }
   }
-};
+});
 app.use(session({
   secret: config.sessionSecret,
   resave: false,

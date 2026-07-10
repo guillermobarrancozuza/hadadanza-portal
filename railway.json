@@ -4,7 +4,7 @@
     "nixpacksConfig": {
       "nodeVersion": "20"
     },
-    "buildCommand": "npm install --production"
+    "buildCommand": "npm install"
   },
   "deploy": {
     "startCommand": "node server.js",
