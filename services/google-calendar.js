@@ -232,7 +232,10 @@ function buildEventBody(appEvent) {
   const endDate = appEvent.end_date || appEvent.start_date;
   const showTime = appEvent.basic_info?.show_time;
   const startTime = showTime ? `${showTime}:00` : '10:00:00';
-  const endTime = showTime ? `${showTime}:00` : '11:00:00';
+  const endTime = showTime ? (() => {
+    const [h, m = 0] = showTime.split(':').map(Number);
+    return `${String((h + 1) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+  })() : '11:00:00';
 
   const isAllDay = !showTime;
 
