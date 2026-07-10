@@ -242,6 +242,8 @@ function buildEventBody(appEvent) {
     startTime = '10:00:00';
     endTime = '11:00:00';
   }
+  // DEBUG: ver qué tiempos se están generando
+  console.log(`⏰ buildEventBody id=${appEvent.id} showTime="${showTime}" startTime="${startTime}" endTime="${endTime}"`);
 
   const description = [
     `Artista: ${appEvent.artist_id || ''}`,
@@ -271,7 +273,7 @@ async function pushEventToCalendar(appEvent, googleEventId = null) {
   const eventBody = buildEventBody(appEvent);
   const calendarId = config.google.calendarId;
 
-  console.log('▶ pushEventToCalendar', JSON.stringify({ id: appEvent.id, title: appEvent.title, status: appEvent.status, start_date: appEvent.start_date, end_date: appEvent.end_date, show_time: appEvent.basic_info?.show_time, eventBody }, null, 2));
+  console.log('▶ push id=' + appEvent.id + ' start=' + eventBody.start.dateTime + ' end=' + eventBody.end.dateTime + ' showTime=' + JSON.stringify(appEvent.basic_info?.show_time) + ' title=' + appEvent.title);
 
   try {
     let result;
