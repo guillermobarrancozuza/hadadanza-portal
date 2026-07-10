@@ -162,7 +162,7 @@ function getGlobalSyncStatus() {
 
 function hasGlobalTokens() {
   const tokens = getGlobalTokens();
-  return !!(tokens?.access_token && tokens?.refresh_token);
+  return !!(tokens?.access_token);
 }
 
 // ── AUTHENTICATED GLOBAL CLIENT ────────────────────
