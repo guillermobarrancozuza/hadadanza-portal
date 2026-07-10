@@ -231,13 +231,17 @@ function buildEventBody(appEvent) {
   const startDate = appEvent.start_date;
   const endDate = appEvent.end_date || appEvent.start_date;
   const showTime = appEvent.basic_info?.show_time;
-  const finalStartTime = showTime ? `${showTime}:00` : '10:00:00';
-  const finalEndTime = showTime
-    ? (() => {
-        const [h, m = 0] = showTime.split(':').map(Number);
-        return `${String((h + 1) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
-      })()
-    : '11:00:00';
+
+  // Siempre usar formato dateTime (nunca all-day) para evitar timeRangeEmpty
+  let startTime, endTime;
+  if (showTime) {
+    const [h, m = 0] = showTime.split(':').map(Number);
+    startTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+    endTime = `${String((h + 1) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+  } else {
+    startTime = '10:00:00';
+    endTime = '11:00:00';
+  }
 
   const description = [
     `Artista: ${appEvent.artist_id || ''}`,
@@ -253,8 +257,8 @@ function buildEventBody(appEvent) {
     description,
     location: `${appEvent.venue_name || ''}, ${appEvent.city || ''}, ${appEvent.country_code || ''}`,
     colorId: String(DEFAULT_COLOR_ID),
-    start: { dateTime: `${startDate}T${finalStartTime}`, timeZone: 'Europe/Madrid' },
-    end: { dateTime: `${endDate}T${finalEndTime}`, timeZone: 'Europe/Madrid' },
+    start: { dateTime: `${startDate}T${startTime}`, timeZone: 'Europe/Madrid' },
+    end: { dateTime: `${endDate}T${endTime}`, timeZone: 'Europe/Madrid' },
   };
 
   return body;

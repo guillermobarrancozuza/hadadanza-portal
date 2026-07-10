@@ -145,6 +145,11 @@ app.get('/api/v1/public/portada', (req, res) => {
   res.json({ name: artist?.name || 'HADADANZA', image_url: artist?.image_url || '' });
 });
 
+app.get('/api/v1/version', (req, res) => {
+  const commit = process.env.RAILWAY_GIT_COMMIT_SHA || 'unknown';
+  res.json({ version: '1.0.0', commit });
+});
+
 // ── AUTH ROUTES ──────────────────────────────────────
 const authRoutes = require('./routes/auth');
 app.use('/api/v1/auth', authRoutes);
