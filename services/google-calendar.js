@@ -228,23 +228,9 @@ async function getAuthenticatedGlobalClient() {
 // ── CALENDAR API OPERATIONS ───────────────────────
 function buildEventBody(appEvent) {
   // Build start/end datetimes
-  const startDate = appEvent.start_date;
-  const endDate = appEvent.end_date || appEvent.start_date;
-  const showTime = appEvent.basic_info?.show_time;
+  const d = appEvent.start_date;
 
-  // Siempre usar formato dateTime (nunca all-day) para evitar timeRangeEmpty
-  let startTime, endTime;
-  if (showTime) {
-    const [h, m = 0] = showTime.split(':').map(Number);
-    startTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
-    endTime = `${String((h + 1) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
-  } else {
-    startTime = '10:00:00';
-    endTime = '11:00:00';
-  }
-  // DEBUG: ver qué tiempos se están generando
-  console.log(`⏰ buildEventBody id=${appEvent.id} showTime="${showTime}" startTime="${startTime}" endTime="${endTime}"`);
-
+  // Siempre dateTime fijo 10:00-11:00 (NUNCA all-day, NUNCA showTime)
   const description = [
     `Artista: ${appEvent.artist_id || ''}`,
     `Ciudad: ${appEvent.city || ''}`,
@@ -259,8 +245,8 @@ function buildEventBody(appEvent) {
     description,
     location: `${appEvent.venue_name || ''}, ${appEvent.city || ''}, ${appEvent.country_code || ''}`,
     colorId: String(DEFAULT_COLOR_ID),
-    start: { dateTime: `${startDate}T${startTime}`, timeZone: 'Europe/Madrid' },
-    end: { dateTime: `${endDate}T${endTime}`, timeZone: 'Europe/Madrid' },
+    start: { dateTime: d + 'T10:00:00', timeZone: 'Europe/Madrid' },
+    end: { dateTime: d + 'T11:00:00', timeZone: 'Europe/Madrid' },
   };
 
   return body;
@@ -272,8 +258,6 @@ async function pushEventToCalendar(appEvent, googleEventId = null) {
 
   const eventBody = buildEventBody(appEvent);
   const calendarId = config.google.calendarId;
-
-  console.log('▶ push id=' + appEvent.id + ' start=' + eventBody.start.dateTime + ' end=' + eventBody.end.dateTime + ' showTime=' + JSON.stringify(appEvent.basic_info?.show_time) + ' title=' + appEvent.title);
 
   try {
     let result;

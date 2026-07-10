@@ -3,7 +3,8 @@
     "builder": "NIXPACKS",
     "nixpacksConfig": {
       "nodeVersion": "20"
-    }
+    },
+    "buildCommand": "npm install --production"
   },
   "deploy": {
     "startCommand": "node server.js",

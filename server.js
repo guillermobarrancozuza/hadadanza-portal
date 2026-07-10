@@ -367,4 +367,8 @@ app.use((err, req, res, next) => {
 });
 
 // ── START ────────────────────────────────────────────
-app.listen(PORT, () => console.log(`HADADANZA API Server running on port ${PORT}`));
+const DEPLOY_COMMIT = process.env.RAILWAY_GIT_COMMIT_SHA || 'local';
+app.listen(PORT, () => {
+  console.log(`=== DEPLOY ACTIVE === commit: ${DEPLOY_COMMIT}`);
+  console.log(`HADADANZA API Server running on port ${PORT}`);
+});
