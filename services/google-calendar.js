@@ -231,13 +231,13 @@ function buildEventBody(appEvent) {
   const startDate = appEvent.start_date;
   const endDate = appEvent.end_date || appEvent.start_date;
   const showTime = appEvent.basic_info?.show_time;
-  const startTime = showTime ? `${showTime}:00` : '10:00:00';
-  const endTime = showTime ? (() => {
-    const [h, m = 0] = showTime.split(':').map(Number);
-    return `${String((h + 1) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
-  })() : '11:00:00';
-
-  const isAllDay = !showTime;
+  const finalStartTime = showTime ? `${showTime}:00` : '10:00:00';
+  const finalEndTime = showTime
+    ? (() => {
+        const [h, m = 0] = showTime.split(':').map(Number);
+        return `${String((h + 1) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+      })()
+    : '11:00:00';
 
   const description = [
     `Artista: ${appEvent.artist_id || ''}`,
@@ -252,19 +252,10 @@ function buildEventBody(appEvent) {
     summary: `${getStatusEmoji(appEvent.status)} ${appEvent.title || 'Concierto'}${appEvent.venue_name ? ' — ' + appEvent.venue_name : ''}`,
     description,
     location: `${appEvent.venue_name || ''}, ${appEvent.city || ''}, ${appEvent.country_code || ''}`,
-    colorId: String(DEFAULT_COLOR_ID), // Siempre gris neutro; el emoji indica el estado
+    colorId: String(DEFAULT_COLOR_ID),
+    start: { dateTime: `${startDate}T${finalStartTime}`, timeZone: 'Europe/Madrid' },
+    end: { dateTime: `${endDate}T${finalEndTime}`, timeZone: 'Europe/Madrid' },
   };
-
-  if (isAllDay) {
-    const endDt = endDate === startDate
-      ? new Date(new Date(endDate + 'T00:00:00Z').getTime() + 86400000).toISOString().slice(0, 10)
-      : endDate;
-    body.start = { date: startDate, timeZone: 'Europe/Madrid' };
-    body.end = { date: endDt, timeZone: 'Europe/Madrid' };
-  } else {
-    body.start = { dateTime: `${startDate}T${startTime}`, timeZone: 'Europe/Madrid' };
-    body.end = { dateTime: `${endDate}T${endTime}`, timeZone: 'Europe/Madrid' };
-  }
 
   return body;
 }

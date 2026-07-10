@@ -172,14 +172,24 @@ router.post('/google/sync', requireAuth, async (req, res) => {
         }
         synced++;
       } else {
+        // If event was deleted from Google Calendar (404/410), clear the id so it gets re-created
+        if (googleEventId && (result.statusCode === 404 || result.statusCode === 410)) {
+          console.warn(`  → Clearing obsolete google_event_id for "${ev.title || ev.id}"`);
+          ev.google_event_id = null;
+          // Retry as a new insert
+          const retry = await googleCal.pushEventToCalendar(ev, null);
+          if (retry.success) {
+            ev.google_event_id = retry.googleEventId;
+            synced++;
+            continue;
+          }
+        }
         errors++;
       }
     }
 
-    // Write updated google_event_ids back
-    if (synced > 0) {
-      fs.writeFileSync(path.join(__dirname, '..', 'storage', 'db.json'), JSON.stringify(dbData, null, 2), 'utf8');
-    }
+    // Write updated google_event_ids back (always write if any event changed)
+    fs.writeFileSync(path.join(__dirname, '..', 'storage', 'db.json'), JSON.stringify(dbData, null, 2), 'utf8');
 
     googleCal.saveGlobalSyncStatus(errors === 0 && synced >= 0 ? 'synced' : 'error');
     res.json({ success: true, synced, errors });
