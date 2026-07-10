@@ -170,47 +170,31 @@
                  <label class="flex items-center space-x-1.5"><input type="checkbox" v-model="statusFilters.conflict" class="accent-[#E67E22]"> <span>Conflicto</span></label>
               </div>
             </div>
-                        <!-- Google Calendar Sync Toggle -->
+                        <!-- Google Calendar Status (global) -->
             <div class="flex items-center space-x-2 ml-auto relative">
               <div class="flex items-center space-x-2 bg-[#232528] border border-bandit-borderDark rounded-full px-3 py-1.5 text-xs">
-                <i class="fa-brands fa-google text-slate-400"></i>
-                <button @click="toggleGoogleSync" class="relative w-9 h-[18px] rounded-full transition-colors duration-300 focus:outline-none"
-                  :class="syncToggleEnabled ? 'bg-green-500/80' : 'bg-[#3c3f43]'">
-                  <div class="absolute top-0.5 w-[14px] h-[14px] bg-white rounded-full shadow transition-transform duration-300"
-                    :class="syncToggleEnabled ? 'translate-x-[18px]' : 'translate-x-[2px]'"></div>
-                </button>
-                <span class="font-semibold whitespace-nowrap" :class="syncToggleEnabled ? 'text-green-400' : 'text-slate-500'">
-                  {{ syncToggleEnabled ? 'Google Calendar sincronizado' : 'Google Calendar no sincronizado' }}
+                <i class="fa-brands fa-google" :class="googleStatus === 'synced' ? 'text-green-400' : googleStatus === 'error' ? 'text-red-400' : 'text-slate-500'"></i>
+                <span class="font-semibold whitespace-nowrap" :class="googleStatus === 'synced' ? 'text-green-400' : googleStatus === 'error' ? 'text-red-400' : 'text-slate-500'">
+                  {{ googleStatus === 'synced' ? 'Calendar sincronizado' : googleStatus === 'error' ? 'Error de sincronización' : googleStatus === 'syncing' ? 'Sincronizando...' : 'Calendar no conectado' }}
                 </span>
-                <button @click="showSyncInfo = !showSyncInfo" class="text-slate-500 hover:text-white transition-colors" title="Información de sincronización">
-                  <i class="fa-solid fa-circle-info text-[10px]"></i>
+                <button v-if="hasPerm('can_edit_calendar')" @click="openGoogleSettings = !openGoogleSettings" class="text-slate-500 hover:text-white transition-colors" title="Configuración">
+                  <i class="fa-solid fa-gear text-[10px]"></i>
                 </button>
               </div>
-              <!-- Sync Info Popover -->
+              <!-- Admin popover -->
               <transition name="fade">
-                <div v-if="showSyncInfo" class="absolute top-full right-0 mt-2 w-64 bg-[#2a2d30] border border-[#3c3f43] rounded-lg shadow-xl z-50 p-4 text-xs space-y-3">
-                  <div class="flex items-start space-x-3">
-                    <div class="w-8 h-8 rounded-full bg-brand/10 flex items-center justify-center flex-shrink-0"><i class="fa-brands fa-google text-brand"></i></div>
-                    <div class="flex-1 min-w-0">
-                      <p class="text-slate-300 font-semibold">Google Calendar</p>
-                      <p class="text-slate-500 truncate">{{ googleEmail || 'No conectado' }}</p>
-                    </div>
-                    <div v-if="googleStatus === 'synced'" class="w-2 h-2 rounded-full bg-green-400 flex-shrink-0 mt-1"></div>
-                    <div v-else class="w-2 h-2 rounded-full bg-slate-500 flex-shrink-0 mt-1"></div>
-                  </div>
-                  <div class="border-t border-[#3c3f43] pt-3 space-y-2">
-                    <div class="flex justify-between"><span class="text-slate-500">Estado</span><span class="text-slate-300 capitalize">{{ googleStatus }}</span></div>
-                    <div class="flex justify-between"><span class="text-slate-500">Última sincronización</span><span class="text-slate-300">{{ googleLastSync || 'Nunca' }}</span></div>
-                  </div>
-                  <div class="border-t border-[#3c3f43] pt-3 flex flex-col space-y-1.5">
-                    <button @click="syncGoogle" class="w-full text-left px-3 py-1.5 rounded text-slate-300 hover:bg-[#3c3f43] transition-colors flex items-center space-x-2">
+                <div v-if="openGoogleSettings" class="absolute top-full right-0 mt-2 w-56 bg-[#2a2d30] border border-[#3c3f43] rounded-lg shadow-xl z-50 p-3 text-xs space-y-2">
+                  <p class="text-slate-400 font-semibold mb-1">Google Calendar</p>
+                  <p class="text-slate-500 truncate">{{ googleEmail || 'hadadanzametal@gmail.com' }}</p>
+                  <div class="border-t border-[#3c3f43] pt-2 flex flex-col space-y-1.5">
+                    <button v-if="googleStatus !== 'synced'" @click="connectGoogle" class="w-full text-left px-3 py-1.5 rounded text-slate-300 hover:bg-[#3c3f43] transition-colors flex items-center space-x-2">
+                      <i class="fa-solid fa-link text-[10px] text-brand"></i><span>Conectar calendario</span>
+                    </button>
+                    <button v-if="googleStatus === 'synced' || googleStatus === 'error'" @click="syncGoogle" class="w-full text-left px-3 py-1.5 rounded text-slate-300 hover:bg-[#3c3f43] transition-colors flex items-center space-x-2">
                       <i class="fa-solid fa-rotate text-[10px] text-brand"></i><span>Forzar sincronización</span>
                     </button>
-                    <button @click="connectGoogle" class="w-full text-left px-3 py-1.5 rounded text-slate-300 hover:bg-[#3c3f43] transition-colors flex items-center space-x-2">
-                      <i class="fa-solid fa-arrow-right-arrow-left text-[10px] text-brand"></i><span>Cambiar cuenta de Google</span>
-                    </button>
-                    <button @click="disconnectGoogle" class="w-full text-left px-3 py-1.5 rounded text-red-400 hover:bg-[#3c3f43] transition-colors flex items-center space-x-2">
-                      <i class="fa-solid fa-unlink text-[10px]"></i><span>Desconectar cuenta</span>
+                    <button v-if="googleStatus === 'synced'" @click="disconnectGoogle" class="w-full text-left px-3 py-1.5 rounded text-red-400 hover:bg-[#3c3f43] transition-colors flex items-center space-x-2">
+                      <i class="fa-solid fa-unlink text-[10px]"></i><span>Desconectar</span>
                     </button>
                   </div>
                 </div>
@@ -1100,7 +1084,6 @@
         // ── GOOGLE CALENDAR ───────────────────────────────
         const googleStatus = ref('disconnected');
         const googleEmail = ref('');
-        const googleLastSync = ref('');
         // ── TEMPLATES (Archivos) ─────────────────────────
         const templatesList = ref([]);
         const templateCategories = ref([]);
@@ -1299,7 +1282,7 @@
         watch([templateFilterType, templateFilterCategory, templateSearch], () => {
           if (globalView.value === 'templates') loadTemplates();
         });
-        const showSyncInfo = ref(false);
+        const openGoogleSettings = ref(false);
 
         // ── ROLES & PERMISSIONS MATRIX ────────────────────
         const rolesList = ref([]);
@@ -1655,31 +1638,12 @@
               const data = await res.json();
               googleStatus.value = data.status || 'disconnected';
               googleEmail.value = data.email || '';
-              googleLastSync.value = data.lastSyncAt || '';
             }
           } catch (e) { /* not critical */ }
         }
 
         function connectGoogle() {
-          window.location.href = `${API_BASE}/auth/google`;
-        }
-
-        
-        // ── SYNC TOGGLE ────────────────────────────────────
-        const syncToggleEnabled = computed(() => {
-          return googleStatus.value === 'synced' || googleStatus.value === 'syncing';
-        });
-
-        async function toggleGoogleSync() {
-          if (syncToggleEnabled.value) {
-            // Turn off sync — pause it
-            await disconnectGoogle();
-          } else {
-            // Turn on sync
-            if (googleStatus.value === 'disconnected' || googleStatus.value === 'paused') {
-              await connectGoogle();
-            }
-          }
+          window.location.href = `${API_BASE}/auth/google?mode=calendar`;
         }
 
         async function syncGoogle() {
@@ -1687,7 +1651,7 @@
           try {
             const res = await fetch(`${API_BASE}/google/sync`, { method: 'POST' });
             const data = await res.json();
-            if (data.status === 'success') {
+            if (data.success) {
               await checkGoogleStatus();
             } else {
               googleStatus.value = 'error';
@@ -1700,10 +1664,11 @@
         async function disconnectGoogle() {
           if (!confirm('¿Desconectar Google Calendar?')) return;
           try {
-            await fetch(`${API_BASE}/google/disconnect`, { method: 'POST' });
-            googleStatus.value = 'disconnected';
-            googleEmail.value = '';
-            googleLastSync.value = '';
+            const res = await fetch(`${API_BASE}/google/disconnect`, { method: 'POST' });
+            if (res.ok) {
+              googleStatus.value = 'disconnected';
+              googleEmail.value = '';
+            }
           } catch (e) { alert('Error: ' + e.message); }
         }
 
@@ -2170,7 +2135,7 @@
           currentYear, currentMonth, currentMonthName, calendarMode, statusFilters, newTaskText,
           openGlobalView, openEvent, openEventEditor, createNewEventFromDrawer, saveCurrentEvent, selectArtist, getEventColor, formatCurrency, formatDateLong, formatDate, uploadArtistImage, uploadContractImage, changeYear, changeMonth, addHotel, addTravelStage, addScheduleItem, addGuest, addEventContact, addAccountingSplit, addTaskToForm, addSingleTask, applyTaskTemplate, uploadEventFile, deleteEventFile, generateContractPDF, exportRoadmapPDF, exportFullRoadmapPDF, importContractDocx, uploadTechnicalRider, uploadTechnicalContraRider, deleteTechnicalRider, deleteTechnicalContraRider, openCrewEditor, closeCrewEditor, saveCrewMember, addCrewMember, addVehicle, deleteCrewMember,
           // Google Calendar
-          googleStatus, googleEmail, googleLastSync, showSyncInfo, syncToggleEnabled, toggleGoogleSync,templatesList, templateCategories, templateFilterType, templateFilterCategory, templateSearch,
+          googleStatus, googleEmail, openGoogleSettings,templatesList, templateCategories, templateFilterType, templateFilterCategory, templateSearch,
           showTemplateEditor, editTemplate, templateForm, templateSaving, saveTemplate, openTemplateEditor,
           showTemplatePreview, previewTemplate, openTemplatePreview,
           showTemplatePicker, pickerType, openTemplatePicker, applyTemplate,
@@ -2178,7 +2143,7 @@
           templateEventAssignments, loadEventTemplateAssignments,
           templateFileSelected, templateFileType, templateExtractedContent,
           handleTemplateFileUpload, removeTemplateFile,
-          checkGoogleStatus, connectGoogle, syncGoogle, disconnectGoogle, toggleGoogleSync,
+          checkGoogleStatus, connectGoogle, syncGoogle, disconnectGoogle,
           // Roles & Permissions Matrix
           rolesList, activeRoleId, activeRoleName, activeRoleDesc, activeRoleIsSystem,
           modulesList, moduleSearch, matrixPermissions, allMatrixActions, actionLabels, filteredModules,

@@ -150,6 +150,12 @@ function initDatabase() {
       type TEXT NOT NULL CHECK(type IN ('contract','technical')),
       PRIMARY KEY (event_id, type)
     );
+
+    CREATE TABLE IF NOT EXISTS app_config (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // ── MIGRATION: add file columns to templates if missing ──

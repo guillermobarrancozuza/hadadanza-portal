@@ -9,7 +9,7 @@ require('dotenv').config();
 const config = require('./config');
 const { initDatabase, getDb } = require('./db/sqlite');
 const { requireAuth } = require('./middleware/auth');
-const cron = require('node-cron');
+const googleCal = require('./services/google-calendar');
 
 // ── APP SETUP ────────────────────────────────────────
 const app = express();
@@ -112,16 +112,30 @@ function writeDb(data) {
   catch (err) { console.error('writeDb error:', err.message); return false; }
 }
 
-// ── SYNC QUEUE HELPER ──────────────────────────────
-function enqueueSync(eventId, action) {
+// ── GOOGLE CALENDAR SYNC HELPER ──────────────────────
+async function syncEventToGoogle(appEvent, action) {
+  if (!googleCal.hasGlobalTokens()) return;
   try {
-    const db = getDb();
-    const users = db.prepare("SELECT id FROM collaborators WHERE google_calendar_status IN ('synced','error')").all();
-    const ins = db.prepare('INSERT INTO sync_queue (user_id, event_id, action) VALUES (?, ?, ?)');
-    for (const u of users) {
-      ins.run(u.id, eventId, action);
+    if (action === 'delete') {
+      if (appEvent.google_event_id) {
+        await googleCal.deleteEventFromCalendar(appEvent.google_event_id);
+      }
+    } else {
+      const result = await googleCal.pushEventToCalendar(appEvent, appEvent.google_event_id || null);
+      if (result.success && !appEvent.google_event_id) {
+        // Save google_event_id back to db.json
+        appEvent.google_event_id = result.googleEventId;
+        const db = readDb();
+        const idx = db.events.findIndex(e => e.id === appEvent.id);
+        if (idx !== -1) {
+          db.events[idx].google_event_id = result.googleEventId;
+          writeDb(db);
+        }
+      }
     }
-  } catch (e) { console.error('Enqueue sync error:', e.message); }
+  } catch (e) {
+    console.error(`Google sync error (${action}):`, e.message);
+  }
 }
 
 // ── PUBLIC (no auth) ──────────────────────────────────
@@ -144,7 +158,7 @@ const collaboratorsRoutes = require('./routes/collaborators');
 app.use('/api/v1/collaborators', collaboratorsRoutes);
 
 // ── GOOGLE CALENDAR ──────────────────────────────────
-const { router: googleCalendarRoutes, performSync } = require('./routes/google-calendar');
+const { router: googleCalendarRoutes } = require('./routes/google-calendar');
 app.use('/api/v1', googleCalendarRoutes);
 
 const templatesRoutes = require('./routes/templates');
@@ -256,7 +270,7 @@ app.post('/api/v1/events', requireAuth, async (req, res) => {
     db.events.push(newEvent);
     const written = writeDb(db);
     if (!written) { return res.status(500).json({ error: 'Error al guardar en disco' }); }
-    enqueueSync(newEvent.id, 'create');
+    syncEventToGoogle(newEvent, 'create').catch(e => console.error('Google sync error:', e));
     res.status(201).json({ success: true, event: newEvent });
   } catch (e) {
     console.error('POST /api/v1/events error:', e.message);
@@ -267,8 +281,13 @@ app.post('/api/v1/events', requireAuth, async (req, res) => {
 app.put('/api/v1/events/:eventId', requireAuth, async (req, res) => {
   try {
     const db = readDb(); const index = db.events.findIndex(e => e.id === req.params.eventId);
-    if (index !== -1) { db.events[index] = { ...db.events[index], ...req.body }; writeDb(db); enqueueSync(req.params.eventId, 'update'); res.json({ success: true, event: db.events[index] }); }
-    else res.status(404).json({ error: 'Not found' });
+    if (index !== -1) {
+      const oldEvent = { ...db.events[index] };
+      db.events[index] = { ...oldEvent, ...req.body };
+      writeDb(db);
+      syncEventToGoogle(db.events[index], 'update').catch(e => console.error('Google sync error:', e));
+      res.json({ success: true, event: db.events[index] });
+    } else res.status(404).json({ error: 'Not found' });
   } catch (e) {
     console.error('PUT /api/v1/events error:', e.message);
     res.status(500).json({ error: 'Error interno del servidor', detail: e.message });
@@ -277,8 +296,12 @@ app.put('/api/v1/events/:eventId', requireAuth, async (req, res) => {
 
 app.delete('/api/v1/events/:eventId', requireAuth, (req, res) => {
   const db = readDb(); const index = db.events.findIndex(e => e.id === req.params.eventId);
-  if (index !== -1) { const deletedEvent = db.events.splice(index, 1)[0]; writeDb(db); enqueueSync(req.params.eventId, 'delete'); res.json({ success: true, event: deletedEvent }); }
-  else { res.status(404).json({ error: 'Event not found' }); }
+  if (index !== -1) {
+    const deletedEvent = db.events.splice(index, 1)[0];
+    writeDb(db);
+    syncEventToGoogle(deletedEvent, 'delete').catch(e => console.error('Google sync error:', e));
+    res.json({ success: true, event: deletedEvent });
+  } else { res.status(404).json({ error: 'Event not found' }); }
 });
 
 app.post('/api/v1/events/:eventId/files/upload', requireAuth, (req, res) => {
@@ -331,31 +354,6 @@ app.get('/api/v1/audit-log', requireAuth, (req, res) => {
 
 // ── SPA FALLBACK ─────────────────────────────────────
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-
-// ── AUTO SYNC (cada 15 min en horario laboral) ─────
-const googleCal = require('./services/google-calendar');
-const { logAudit } = require('./middleware/audit');
-
-async function processSyncQueue() {
-  try {
-    const db = getDb();
-    const pending = db.prepare("SELECT DISTINCT user_id FROM sync_queue WHERE status = 'pending'").all();
-    for (const row of pending) {
-      const user = db.prepare("SELECT google_calendar_status FROM collaborators WHERE id = ?").get(row.user_id);
-      if (user && (user.google_calendar_status === 'synced' || user.google_calendar_status === 'error')) {
-        // Process via the sync engine
-        await performSync(row.user_id);
-      }
-    }
-  } catch (e) {
-    console.error('Auto-sync error:', e.message);
-  }
-}
-
-// Every 15 minutes during working hours (8:00-22:00)
-cron.schedule('*/15 8-22 * * *', () => {
-  processSyncQueue().catch(e => console.error('Cron sync error:', e));
-});
 
 // ── GLOBAL ERROR HANDLER (catches middleware errors) ──
 app.use((err, req, res, next) => {

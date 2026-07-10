@@ -5,9 +5,9 @@ const { logAudit } = require('../middleware/audit');
 const googleCal = require('../services/google-calendar');
 const router = express.Router();
 
-// GET /api/v1/auth/google — Iniciar OAuth flow (login o calendar)
+// GET /api/v1/auth/google — Iniciar OAuth flow (login)
 router.get('/auth/google', (req, res) => {
-  const mode = req.query.mode || 'calendar';
+  const mode = req.query.mode || 'login';
 
   if (mode === 'login') {
     // LOGIN FLOW: no session required
@@ -15,45 +15,41 @@ router.get('/auth/google', (req, res) => {
     return res.redirect(authUrl);
   }
 
-  // CALENDAR SYNC FLOW: session required
+  // CALENDAR CONNECT FLOW: solo admin
   if (!req.session || !req.session.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
   const db = getDb();
-  const user = db.prepare('SELECT google_account_email FROM collaborators WHERE id = ?').get(req.session.userId);
-
-  // Check if user already has tokens with calendar scope
-  if (googleCal.hasCalendarScope(req.session.userId)) {
-    // Fix inconsistent status
-    db.prepare("UPDATE collaborators SET google_calendar_status = 'synced' WHERE id = ?").run(req.session.userId);
-    return res.redirect('/?google=already-connected');
+  const user = db.prepare('SELECT role_id FROM collaborators WHERE id = ?').get(req.session.userId);
+  if (!user || user.role_id !== 'role-admin') {
+    return res.status(403).json({ error: 'Solo el administrador puede conectar el calendario' });
   }
 
-  // Need calendar scope — pass userId in state to survive across redirect
-  const authUrl = googleCal.getCalendarAuthUrl(user?.google_account_email || undefined, req.session.userId);
+  // Redirect to Google OAuth with calendar scope (no state needed, global)
+  const oauth2 = googleCal.getOAuth2Client();
+  const authUrl = oauth2.generateAuthUrl({
+    access_type: 'offline',
+    scope: ['https://www.googleapis.com/auth/calendar'],
+    prompt: 'consent',
+    include_granted_scopes: true,
+  });
   res.redirect(authUrl);
 });
 
 // GET /api/v1/auth/google/callback — Callback de OAuth (login o calendar)
 router.get('/auth/google/callback', async (req, res) => {
-  const { code, error: oauthError, state } = req.query;
-  // Use userId from OAuth state if session was lost during redirect
-  const stateUserId = state && !state.includes('%') ? state : null;
-  const isLoginFlow = !req.session?.userId && !stateUserId;
+  const { code, error: oauthError } = req.query;
+  const isLoginFlow = !req.session?.userId;
 
   if (oauthError) {
     console.error('Google OAuth error:', oauthError);
-    if (isLoginFlow) return res.redirect('/?google=error&msg=' + encodeURIComponent(oauthError));
     return res.redirect('/?google=error&msg=' + encodeURIComponent(oauthError));
   }
-
   if (!code) {
-    if (isLoginFlow) return res.redirect('/?google=error&msg=No+authorization+code');
     return res.redirect('/?google=error&msg=No+authorization+code');
   }
 
   try {
-    // Exchange code for tokens
     const tokens = await googleCal.handleCallback(code);
     const email = await googleCal.getUserEmailFromTokens(tokens) || (await (async () => {
       const { OAuth2Client } = require('google-auth-library');
@@ -68,7 +64,6 @@ router.get('/auth/google/callback', async (req, res) => {
       let user = db.prepare('SELECT * FROM collaborators WHERE email = ?').get(email);
 
       if (!user) {
-        // ── AUTO-CREATE USER ──
         const googleInfo = await googleCal.getUserInfo(tokens);
         const displayName = googleInfo?.name || email.split('@')[0] || 'Usuario Google';
         const givenName = googleInfo?.givenName || '';
@@ -87,219 +82,127 @@ router.get('/auth/google/callback', async (req, res) => {
       if (user.status !== 'Activo') {
         return res.redirect('/?google=no-access&reason=disabled');
       }
-      // Create session
+
       req.session.userId = user.id;
       req.session.userName = user.name;
       req.session.userRole = user.role_id;
-      // Save tokens for potential later use (calendar sync)
-      googleCal.saveTokens(user.id, tokens);
+
       db.prepare('UPDATE collaborators SET google_account_email = ?, google_calendar_status = ?, last_login_at = CURRENT_TIMESTAMP WHERE id = ?')
         .run(email, 'disconnected', user.id);
+
       logAudit(req, 'google_login', 'collaborator', user.id, null, { email });
+
       req.session.save(() => {
         res.redirect('/?google=login');
       });
     } else {
-      // ── CALENDAR SYNC FLOW ──
-      const userId = stateUserId || req.session?.userId;
-      if (!userId) {
-        return res.redirect('/?google=error&msg=Session+lost');
+      // ── CALENDAR CONNECT FLOW (global / solo admin) ──
+      if (email !== 'hadadanzametal@gmail.com' && email !== googleCal.getGlobalEmail()) {
+        console.warn(`[google] Intentó conectar con email diferente: ${email}`);
       }
-      googleCal.saveTokens(userId, tokens);
-      const db = getDb();
-      db.prepare(`
-        UPDATE collaborators SET google_account_email = ?, google_calendar_status = 'synced', last_sync_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `).run(email, userId);
-      logAudit(req, 'google_connected', 'collaborator', userId, null, { email });
+
+      // Guardar tokens como globales
+      googleCal.saveGlobalTokens(tokens);
+      googleCal.saveGlobalEmail(email);
+      googleCal.saveGlobalSyncStatus('synced');
+
+      logAudit(req, 'google_connected', 'system', 'global', null, { email });
+
       // Restore session if needed
       if (!req.session?.userId) {
-        const user = db.prepare('SELECT * FROM collaborators WHERE id = ?').get(userId);
+        const db = getDb();
+        const user = db.prepare('SELECT * FROM collaborators WHERE id = ?').get(req.query.state);
         if (user) {
           req.session.userId = user.id;
           req.session.userName = user.name;
           req.session.userRole = user.role_id;
         }
       }
+
       req.session.save(() => {
         res.redirect('/?google=connected');
       });
     }
   } catch (e) {
     console.error('OAuth callback error:', e);
-    if (isLoginFlow) return res.redirect('/?google=error&msg=' + encodeURIComponent(e.message));
     res.redirect('/?google=error&msg=' + encodeURIComponent(e.message));
   }
 });
 
-// POST /api/v1/google/request-calendar-scope — Solicitar permisos de calendario (login previo)
-router.get('/google/request-calendar-scope', requireAuth, (req, res) => {
-  const db = getDb();
-  const user = db.prepare('SELECT google_account_email FROM collaborators WHERE id = ?').get(req.session.userId);
-  if (googleCal.hasCalendarScope(req.session.userId)) {
-    return res.json({ success: true, message: 'Ya tienes permisos de calendario' });
-  }
-  const authUrl = googleCal.getCalendarAuthUrl(user?.google_account_email || undefined, req.session.userId);
-  res.json({ success: true, authUrl });
-});
-
-// GET /api/v1/google/status — Estado de la conexión
+// GET /api/v1/google/status — Estado GLOBAL de la conexión del calendario
 router.get('/google/status', requireAuth, (req, res) => {
-  const db = getDb();
-  const user = db.prepare(`
-    SELECT google_calendar_status, google_account_email, last_sync_at
-    FROM collaborators WHERE id = ?
-  `).get(req.session.userId);
-
-  const tokens = googleCal.getTokens(req.session.userId);
-
+  const status = googleCal.getGlobalSyncStatus();
+  const connected = status === 'synced' || status === 'error';
   res.json({
-    connected: user?.google_calendar_status === 'synced' || user?.google_calendar_status === 'error',
-    status: user?.google_calendar_status || 'disconnected',
-    email: user?.google_account_email || null,
-    lastSyncAt: user?.last_sync_at || null,
-    hasTokens: !!tokens?.access_token,
-    hasRefreshToken: !!tokens?.refresh_token,
+    connected,
+    status,
+    email: googleCal.getGlobalEmail(),
+    hasTokens: googleCal.hasGlobalTokens(),
   });
 });
 
-// POST /api/v1/google/sync — Sincronizar ahora (manual)
+// POST /api/v1/google/sync — Forzar sincronización manual (admin)
 router.post('/google/sync', requireAuth, async (req, res) => {
   const db = getDb();
-  const userId = req.session.userId;
-  // Check by actual tokens instead of status (status may be out of sync)
-  if (!googleCal.hasCalendarScope(userId)) {
+  const user = db.prepare('SELECT role_id FROM collaborators WHERE id = ?').get(req.session.userId);
+  if (!user || user.role_id !== 'role-admin') {
+    return res.status(403).json({ error: 'Solo el administrador' });
+  }
+  if (!googleCal.hasGlobalTokens()) {
     return res.status(400).json({ error: 'Google Calendar no conectado' });
   }
 
-  db.prepare("UPDATE collaborators SET google_calendar_status = 'syncing' WHERE id = ?").run(userId);
+  googleCal.saveGlobalSyncStatus('syncing');
 
-  // Start sync in background (don't block response)
-  const syncResult = await performSync(userId);
+  // Resync all events from db.json
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const dbData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'storage', 'db.json'), 'utf8'));
+    const events = dbData.events || [];
+    let synced = 0, errors = 0;
 
-  res.json(syncResult);
+    for (const ev of events) {
+      const googleEventId = ev.google_event_id || null;
+      const result = await googleCal.pushEventToCalendar(ev, googleEventId);
+      if (result.success) {
+        if (!googleEventId) {
+          // Save the new google_event_id back to db.json
+          ev.google_event_id = result.googleEventId;
+        }
+        synced++;
+      } else {
+        errors++;
+      }
+    }
+
+    // Write updated google_event_ids back
+    if (synced > 0) {
+      fs.writeFileSync(path.join(__dirname, '..', 'storage', 'db.json'), JSON.stringify(dbData, null, 2), 'utf8');
+    }
+
+    googleCal.saveGlobalSyncStatus(errors === 0 && synced >= 0 ? 'synced' : 'error');
+    res.json({ success: true, synced, errors });
+  } catch (e) {
+    googleCal.saveGlobalSyncStatus('error');
+    res.status(500).json({ error: e.message });
+  }
 });
 
-// POST /api/v1/google/disconnect — Desconectar cuenta
+// POST /api/v1/google/disconnect — Desconectar calendario global (admin)
 router.post('/google/disconnect', requireAuth, async (req, res) => {
+  const db = getDb();
+  const user = db.prepare('SELECT role_id FROM collaborators WHERE id = ?').get(req.session.userId);
+  if (!user || user.role_id !== 'role-admin') {
+    return res.status(403).json({ error: 'Solo el administrador' });
+  }
   try {
-    await googleCal.revokeAccess(req.session.userId);
-    logAudit(req, 'google_disconnected', 'collaborator', req.session.userId);
+    await googleCal.revokeGlobalAccess();
+    logAudit(req, 'google_disconnected', 'system', 'global');
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// ── SYNC ENGINE ────────────────────────────────────
-async function performSync(userId) {
-  const db = getDb();
-  const startTime = new Date().toISOString();
-  let result = { direction: 'bidirectional', status: 'success', events_synced: 0, events_created: 0, events_updated: 0, events_deleted: 0, error_message: null };
-
-  try {
-    // Step 1: PULL — get events from Google
-    const pullResult = await googleCal.pullEvents(userId);
-    if (!pullResult.success) {
-      throw new Error('Pull failed: ' + pullResult.error);
-    }
-
-    // Step 2: Process each Google event for mapping
-    const googleEvents = pullResult.events || [];
-    let mapped = 0;
-
-    for (const ge of googleEvents) {
-      // Check if we already have this event mapped
-      const existing = db.prepare('SELECT event_id FROM event_mapping WHERE google_event_id = ? AND user_id = ?')
-        .get(ge.id, userId);
-
-      if (existing) {
-        // Already mapped, could update the local event here in the future
-        mapped++;
-        continue;
-      }
-
-      // New event from Google — we could auto-create it in the app
-      // For now, just log it
-      result.events_created++;
-    }
-
-    // Step 3: PUSH — process pending queue
-    const queue = db.prepare('SELECT * FROM sync_queue WHERE user_id = ? AND status = ? ORDER BY created_at LIMIT 10')
-      .all(userId, 'pending');
-
-    for (const item of queue) {
-      const eventId = item.event_id;
-      const action = item.action;
-
-      // Get the Google event ID from mapping
-      const mapping = db.prepare('SELECT google_event_id FROM event_mapping WHERE event_id = ? AND user_id = ?')
-        .get(eventId, userId);
-
-      try {
-        if (action === 'delete' && mapping) {
-          const delResult = await googleCal.removeFromGoogle(userId, mapping.google_event_id);
-          if (delResult.success) {
-            db.prepare('DELETE FROM event_mapping WHERE event_id = ? AND user_id = ?').run(eventId, userId);
-            result.events_deleted++;
-          }
-        } else if (action === 'update' || action === 'create') {
-          // Get the app event
-          const appEvent = getAppEvent(eventId);
-          if (!appEvent) continue;
-
-          const pushResult = await googleCal.pushEvent(userId, appEvent, mapping?.google_event_id);
-          if (pushResult.success) {
-            // Save/update mapping
-            db.prepare(`
-              INSERT OR REPLACE INTO event_mapping (event_id, user_id, google_event_id, google_calendar_id, last_sync_at, last_sync_direction)
-              VALUES (?, ?, ?, 'primary', CURRENT_TIMESTAMP, 'push')
-            `).run(eventId, userId, pushResult.googleEventId);
-            result.events_synced++;
-          }
-        }
-
-        // Mark queue item as done
-        db.prepare("UPDATE sync_queue SET status = 'done' WHERE id = ?").run(item.id);
-      } catch (itemError) {
-        db.prepare("UPDATE sync_queue SET status = 'failed', error_message = ?, retry_count = retry_count + 1 WHERE id = ?")
-          .run(itemError.message, item.id);
-        result.error_message = itemError.message;
-      }
-    }
-
-    // Update sync status
-    db.prepare(`
-      UPDATE collaborators SET google_calendar_status = 'synced', last_sync_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(userId);
-
-  } catch (e) {
-    result.status = 'error';
-    result.error_message = e.message;
-    db.prepare("UPDATE collaborators SET google_calendar_status = 'error' WHERE id = ?").run(userId);
-  }
-
-  // Log sync
-  const completedTime = new Date().toISOString();
-  db.prepare(`
-    INSERT INTO sync_log (user_id, direction, status, events_synced, events_created, events_updated, events_deleted, error_message, started_at, completed_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(userId, result.direction, result.status, result.events_synced, result.events_created, result.events_updated, result.events_deleted, result.error_message, startTime, completedTime);
-
-  return result;
-}
-
-// Helper: get app event from db.json
-function getAppEvent(eventId) {
-  try {
-    const fs = require('fs');
-    const path = require('path');
-    const db = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'storage', 'db.json'), 'utf8'));
-    return db.events?.find(e => e.id === eventId) || null;
-  } catch {
-    return null;
-  }
-}
-
-module.exports = { router, performSync };
+module.exports = { router };

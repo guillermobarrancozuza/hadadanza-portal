@@ -3,6 +3,22 @@ const crypto = require('crypto');
 const { getDb } = require('../db/sqlite');
 const config = require('../config');
 
+// ── STATUS → COLOR MAP (Google Calendar colorId) ─────
+const STATUS_COLOR_MAP = {
+  confirmed: 10,    // Green
+  reserve:    1,    // Blue
+  option:     6,    // Orange
+  cancelled:  8,    // Gray
+  band_work:  3,    // Purple
+  holidays:  11,    // Red
+  conflict:   4,    // Flamingo/Gold
+};
+const DEFAULT_COLOR_ID = 8; // Gray
+
+function getColorId(status) {
+  return STATUS_COLOR_MAP[status] ?? DEFAULT_COLOR_ID;
+}
+
 // ── AES-256-GCM ENCRYPTION ─────────────────────────
 function encrypt(text) {
   const key = Buffer.from(config.google.tokenEncryptionKey, 'hex');
@@ -37,16 +53,6 @@ function getOAuth2Client() {
   );
 }
 
-function getAuthUrl() {
-  const oauth2 = getOAuth2Client();
-  return oauth2.generateAuthUrl({
-    access_type: 'offline',
-    scope: config.google.scopes,
-    prompt: 'consent', // Force refresh token on first auth
-  });
-}
-
-
 // ── LOGIN SCOPES (minimal) ─────────────────────────
 function getLoginAuthUrl() {
   const oauth2 = getOAuth2Client();
@@ -58,17 +64,10 @@ function getLoginAuthUrl() {
   });
 }
 
-function getCalendarAuthUrl(emailHint, state) {
+async function handleCallback(code) {
   const oauth2 = getOAuth2Client();
-  const params = {
-    access_type: 'offline',
-    scope: ['https://www.googleapis.com/auth/calendar'],
-    include_granted_scopes: true,
-    prompt: '',
-  };
-  if (emailHint) params.login_hint = emailHint;
-  if (state) params.state = state;
-  return oauth2.generateAuthUrl(params);
+  const { tokens } = await oauth2.getToken(code);
+  return tokens;
 }
 
 async function getUserEmailFromTokens(tokens) {
@@ -83,7 +82,6 @@ async function getUserEmailFromTokens(tokens) {
 
 async function getUserInfo(tokens) {
   try {
-    const { google } = require('googleapis');
     const oauth2Client = getOAuth2Client();
     oauth2Client.setCredentials({ access_token: tokens.access_token });
     const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
@@ -100,59 +98,76 @@ async function getUserInfo(tokens) {
   }
 }
 
-function getUserGrantedScopes(userId) {
+// ── GLOBAL TOKEN STORAGE (app_config) ─────────────
+function saveGlobalTokens(tokens) {
   const db = getDb();
-  const row = db.prepare('SELECT scope FROM google_tokens WHERE user_id = ?').get(userId);
-  return row?.scope || '';
+  const upsert = db.prepare(`
+    INSERT INTO app_config (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+  `);
+  upsert.run('google_access_token', encrypt(tokens.access_token));
+  upsert.run('google_refresh_token', tokens.refresh_token ? encrypt(tokens.refresh_token) : '');
+  upsert.run('google_token_expiry', tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : '');
+  upsert.run('google_scope', tokens.scope || '');
 }
 
-function hasCalendarScope(userId) {
-  const scope = getUserGrantedScopes(userId);
-  return scope.includes('calendar');
-}
-
-
-async function handleCallback(code) {
-  const oauth2 = getOAuth2Client();
-  const { tokens } = await oauth2.getToken(code);
-  return tokens;
-}
-
-// ── TOKEN STORAGE ─────────────────────────────────
-function saveTokens(userId, tokens) {
+function getGlobalTokens() {
   const db = getDb();
-  db.prepare(`
-    INSERT OR REPLACE INTO google_tokens (user_id, access_token, refresh_token, expiry_date, scope, updated_at)
-    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-  `).run(
-    userId,
-    encrypt(tokens.access_token),
-    tokens.refresh_token ? encrypt(tokens.refresh_token) : null,
-    tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
-    tokens.scope || '',
-  );
-}
-
-function getTokens(userId) {
-  const db = getDb();
-  const row = db.prepare('SELECT * FROM google_tokens WHERE user_id = ?').get(userId);
-  if (!row) return null;
+  const rows = db.prepare('SELECT key, value FROM app_config WHERE key LIKE ?').all('google_%');
+  if (!rows.length) return null;
+  const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
+  if (!map.google_access_token) return null;
+  const accessToken = decrypt(map.google_access_token);
+  if (!accessToken) return null;
   return {
-    access_token: row.access_token ? decrypt(row.access_token) : null,
-    refresh_token: row.refresh_token ? decrypt(row.refresh_token) : null,
-    expiry_date: row.expiry_date ? new Date(row.expiry_date).getTime() : null,
-    scope: row.scope,
+    access_token: accessToken,
+    refresh_token: map.google_refresh_token ? decrypt(map.google_refresh_token) : null,
+    expiry_date: map.google_token_expiry ? new Date(map.google_token_expiry).getTime() : null,
+    scope: map.google_scope || '',
   };
 }
 
-function deleteTokens(userId) {
+function deleteGlobalTokens() {
   const db = getDb();
-  db.prepare('DELETE FROM google_tokens WHERE user_id = ?').run(userId);
+  db.prepare("DELETE FROM app_config WHERE key LIKE 'google_%'").run();
 }
 
-// ── AUTHENTICATED CLIENT ──────────────────────────
-async function getAuthenticatedClient(userId) {
-  const tokens = getTokens(userId);
+function saveGlobalEmail(email) {
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO app_config (key, value, updated_at) VALUES ('google_account_email', ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+  `).run(email);
+}
+
+function getGlobalEmail() {
+  const db = getDb();
+  const row = db.prepare("SELECT value FROM app_config WHERE key = 'google_account_email'").get();
+  return row?.value || null;
+}
+
+function saveGlobalSyncStatus(status) {
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO app_config (key, value, updated_at) VALUES ('google_sync_status', ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+  `).run(status);
+}
+
+function getGlobalSyncStatus() {
+  const db = getDb();
+  const row = db.prepare("SELECT value FROM app_config WHERE key = 'google_sync_status'").get();
+  return row?.value || 'disconnected';
+}
+
+function hasGlobalTokens() {
+  const tokens = getGlobalTokens();
+  return !!(tokens?.access_token && tokens?.refresh_token);
+}
+
+// ── AUTHENTICATED GLOBAL CLIENT ────────────────────
+async function getAuthenticatedGlobalClient() {
+  const tokens = getGlobalTokens();
   if (!tokens || !tokens.access_token) return null;
 
   const oauth2 = getOAuth2Client();
@@ -165,8 +180,8 @@ async function getAuthenticatedClient(userId) {
   // Auto-refresh if expired
   oauth2.on('tokens', (newTokens) => {
     if (newTokens.access_token || newTokens.refresh_token) {
-      const existing = getTokens(userId);
-      saveTokens(userId, {
+      const existing = getGlobalTokens();
+      saveGlobalTokens({
         access_token: newTokens.access_token || tokens.access_token,
         refresh_token: newTokens.refresh_token || existing?.refresh_token || tokens.refresh_token,
         expiry_date: newTokens.expiry_date || tokens.expiry_date,
@@ -180,7 +195,7 @@ async function getAuthenticatedClient(userId) {
   if (Date.now() >= expiresAt - 300000) { // 5 min buffer
     try {
       const { credentials } = await oauth2.refreshAccessToken();
-      saveTokens(userId, {
+      saveGlobalTokens({
         access_token: credentials.access_token,
         refresh_token: credentials.refresh_token || tokens.refresh_token,
         expiry_date: credentials.expiry_date,
@@ -196,110 +211,89 @@ async function getAuthenticatedClient(userId) {
 }
 
 // ── CALENDAR API OPERATIONS ───────────────────────
-async function listEvents(calendar, options = {}) {
-  const res = await calendar.events.list({
-    calendarId: 'primary',
-    timeMin: options.timeMin || new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
-    timeMax: options.timeMax || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-    singleEvents: true,
-    orderBy: 'startTime',
-    maxResults: options.maxResults || 250,
-  });
-  return res.data.items || [];
-}
+function buildEventBody(appEvent) {
+  // Build start/end datetimes
+  const startDate = appEvent.start_date;
+  const endDate = appEvent.end_date || appEvent.start_date;
+  const showTime = appEvent.basic_info?.show_time;
+  const startTime = showTime ? `${showTime}:00` : '10:00:00';
+  const endTime = showTime ? `${showTime}:00` : '11:00:00';
 
-async function createCalendarEvent(calendar, eventData) {
-  const res = await calendar.events.insert({
-    calendarId: 'primary',
-    requestBody: {
-      summary: eventData.title,
-      description: eventData.description || '',
-      location: eventData.location || '',
-      start: { dateTime: eventData.startTime, timeZone: 'Europe/Madrid' },
-      end: { dateTime: eventData.endTime, timeZone: 'Europe/Madrid' },
-    },
-  });
-  return res.data;
-}
+  const isAllDay = !showTime;
 
-async function updateCalendarEvent(calendar, googleEventId, eventData) {
-  const res = await calendar.events.update({
-    calendarId: 'primary',
-    eventId: googleEventId,
-    requestBody: {
-      summary: eventData.title,
-      description: eventData.description || '',
-      location: eventData.location || '',
-      start: { dateTime: eventData.startTime, timeZone: 'Europe/Madrid' },
-      end: { dateTime: eventData.endTime, timeZone: 'Europe/Madrid' },
-    },
-  });
-  return res.data;
-}
+  const description = [
+    `Artista: ${appEvent.artist_id || ''}`,
+    `Ciudad: ${appEvent.city || ''}`,
+    `Lugar: ${appEvent.venue_name || ''}`,
+    `Estado: ${appEvent.status || ''}`,
+    `Tipo: ${appEvent.deal_type || ''}`,
+    appEvent.notes ? `Notas: ${appEvent.notes}` : null,
+  ].filter(Boolean).join('\n');
 
-async function deleteCalendarEvent(calendar, googleEventId) {
-  await calendar.events.delete({
-    calendarId: 'primary',
-    eventId: googleEventId,
-  });
-}
-
-// ── SYNC ENGINE ───────────────────────────────────
-async function pushEvent(userId, appEvent, googleEventId = null) {
-  const calendar = await getAuthenticatedClient(userId);
-  if (!calendar) return { success: false, error: 'Not authenticated' };
-
-  const startTime = appEvent.start_date + (appEvent.basic_info?.show_time ? `T${appEvent.basic_info.show_time}:00` : 'T20:00:00');
-  const endTime = appEvent.end_date || appEvent.start_date + 'T23:00:00';
-  const endTimeFormatted = (appEvent.end_date || appEvent.start_date) + 'T23:00:00';
-
-  const eventData = {
-    title: `${appEvent.title || 'Concierto'} - ${appEvent.venue_name || ''} ${appEvent.city || ''}`,
-    description: `Artista: ${appEvent.artist_id}\nCiudad: ${appEvent.city}\nLugar: ${appEvent.venue_name}\nEstado: ${appEvent.status}\n\nNotas: ${appEvent.notes || ''}`,
-    location: `${appEvent.venue_name || ''}, ${appEvent.city || ''}`,
-    startTime,
-    endTime: endTimeFormatted,
+  const body = {
+    summary: `${appEvent.title || 'Concierto'}${appEvent.venue_name ? ' — ' + appEvent.venue_name : ''}`,
+    description,
+    location: `${appEvent.venue_name || ''}, ${appEvent.city || ''}, ${appEvent.country_code || ''}`,
+    colorId: String(getColorId(appEvent.status)),
   };
 
+  if (isAllDay) {
+    body.start = { date: startDate, timeZone: 'Europe/Madrid' };
+    body.end = { date: endDate, timeZone: 'Europe/Madrid' };
+  } else {
+    body.start = { dateTime: `${startDate}T${startTime}`, timeZone: 'Europe/Madrid' };
+    body.end = { dateTime: `${endDate}T${endTime}`, timeZone: 'Europe/Madrid' };
+  }
+
+  return body;
+}
+
+async function pushEventToCalendar(appEvent, googleEventId = null) {
+  const calendar = await getAuthenticatedGlobalClient();
+  if (!calendar) return { success: false, error: 'Not authenticated' };
+
+  const eventBody = buildEventBody(appEvent);
+  const calendarId = config.google.calendarId;
+
   try {
-    let googleEvent;
+    let result;
     if (googleEventId) {
-      googleEvent = await updateCalendarEvent(calendar, googleEventId, eventData);
+      result = await calendar.events.update({
+        calendarId,
+        eventId: googleEventId,
+        requestBody: eventBody,
+      });
     } else {
-      googleEvent = await createCalendarEvent(calendar, eventData);
+      result = await calendar.events.insert({
+        calendarId,
+        requestBody: eventBody,
+      });
     }
-    return { success: true, googleEventId: googleEvent.id };
+    return { success: true, googleEventId: result.data.id };
   } catch (e) {
+    console.error('Google Calendar push error:', e.message);
     return { success: false, error: e.message };
   }
 }
 
-async function pullEvents(userId) {
-  const calendar = await getAuthenticatedClient(userId);
+async function deleteEventFromCalendar(googleEventId) {
+  const calendar = await getAuthenticatedGlobalClient();
   if (!calendar) return { success: false, error: 'Not authenticated' };
 
   try {
-    const items = await listEvents(calendar);
-    return { success: true, events: items };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
-}
-
-async function removeFromGoogle(userId, googleEventId) {
-  const calendar = await getAuthenticatedClient(userId);
-  if (!calendar) return { success: false, error: 'Not authenticated' };
-  try {
-    await deleteCalendarEvent(calendar, googleEventId);
+    await calendar.events.delete({
+      calendarId: config.google.calendarId,
+      eventId: googleEventId,
+    });
     return { success: true };
   } catch (e) {
+    console.error('Google Calendar delete error:', e.message);
     return { success: false, error: e.message };
   }
 }
 
-// ── DISCONNECT ────────────────────────────────────
-async function revokeAccess(userId) {
-  const tokens = getTokens(userId);
+async function revokeGlobalAccess() {
+  const tokens = getGlobalTokens();
   if (tokens?.access_token) {
     try {
       const oauth2 = getOAuth2Client();
@@ -309,30 +303,31 @@ async function revokeAccess(userId) {
       console.error('Revoke failed:', e.message);
     }
   }
-  deleteTokens(userId);
-  const db = getDb();
-  db.prepare(`
-    UPDATE collaborators SET google_calendar_status = 'disconnected', google_account_email = NULL, last_sync_at = NULL
-    WHERE id = ?
-  `).run(userId);
+  deleteGlobalTokens();
+  saveGlobalSyncStatus('disconnected');
 }
 
 module.exports = {
-  getAuthUrl,
+  // Login (se mantiene)
   getLoginAuthUrl,
-  getCalendarAuthUrl,
   handleCallback,
-  saveTokens,
-  getTokens,
-  deleteTokens,
-  getAuthenticatedClient,
-  pushEvent,
-  pullEvents,
-  removeFromGoogle,
-  revokeAccess,
-  listEvents,
   getUserEmailFromTokens,
   getUserInfo,
-  hasCalendarScope,
-  getUserGrantedScopes,
+  // Gestión global de tokens
+  saveGlobalTokens,
+  getGlobalTokens,
+  deleteGlobalTokens,
+  saveGlobalEmail,
+  getGlobalEmail,
+  saveGlobalSyncStatus,
+  getGlobalSyncStatus,
+  hasGlobalTokens,
+  getAuthenticatedGlobalClient,
+  // Operaciones de calendario
+  pushEventToCalendar,
+  deleteEventFromCalendar,
+  revokeGlobalAccess,
+  // Colores
+  getColorId,
+  STATUS_COLOR_MAP,
 };
