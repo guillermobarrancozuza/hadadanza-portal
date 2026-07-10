@@ -29,7 +29,7 @@ router.get('/auth/google', (req, res) => {
   const oauth2 = googleCal.getOAuth2Client();
   const authUrl = oauth2.generateAuthUrl({
     access_type: 'offline',
-    scope: ['https://www.googleapis.com/auth/calendar'],
+    scope: ['https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/userinfo.email'],
     prompt: 'consent',
     include_granted_scopes: true,
   });
