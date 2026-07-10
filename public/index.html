@@ -170,14 +170,14 @@
                  <label class="flex items-center space-x-1.5"><input type="checkbox" v-model="statusFilters.conflict" class="accent-[#E67E22]"> <span>Conflicto</span></label>
               </div>
             </div>
-                        <!-- Google Calendar Status (global) -->
-            <div class="flex items-center space-x-2 ml-auto relative">
+                        <!-- Google Calendar Status (global) — solo admin -->
+            <div v-if="sessionUser?.email === 'admin@hadadanza.com'" class="flex items-center space-x-2 ml-auto relative">
               <div class="flex items-center space-x-2 bg-[#232528] border border-bandit-borderDark rounded-full px-3 py-1.5 text-xs">
                 <i class="fa-brands fa-google" :class="googleStatus === 'synced' ? 'text-green-400' : googleStatus === 'error' ? 'text-red-400' : 'text-slate-500'"></i>
                 <span class="font-semibold whitespace-nowrap" :class="googleStatus === 'synced' ? 'text-green-400' : googleStatus === 'error' ? 'text-red-400' : 'text-slate-500'">
                   {{ googleStatus === 'synced' ? 'Calendar sincronizado' : googleStatus === 'error' ? 'Error de sincronización' : googleStatus === 'syncing' ? 'Sincronizando...' : 'Calendar no conectado' }}
                 </span>
-                <button v-if="hasPerm('can_edit_calendar')" @click="openGoogleSettings = !openGoogleSettings" class="text-slate-500 hover:text-white transition-colors" title="Configuración">
+                <button @click="openGoogleSettings = !openGoogleSettings" class="text-slate-500 hover:text-white transition-colors" title="Configuración">
                   <i class="fa-solid fa-gear text-[10px]"></i>
                 </button>
               </div>
