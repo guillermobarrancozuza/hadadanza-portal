@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const session = require('express-session');
+const SQLiteStore = require('connect-sqlite3')(session);
 const fs = require('fs');
 const path = require('path');
 
@@ -25,15 +26,17 @@ app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
-// Express Session
+// Express Session (persistente en SQLite)
+const sessionDbPath = path.join(__dirname, 'storage', 'sessions.db');
 app.use(session({
   secret: config.sessionSecret,
   resave: false,
   saveUninitialized: false,
+  store: new SQLiteStore({ db: sessionDbPath, dir: path.dirname(sessionDbPath) }),
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
   }
 }));
 

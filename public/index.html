@@ -141,6 +141,16 @@
 
     <!-- MAIN CONTENT -->
     <main class="flex-1 flex flex-col overflow-hidden bg-bandit-bgDark relative">
+      <!-- Impersonation banner -->
+      <div v-if="isImpersonating" class="bg-amber-500/20 border-b border-amber-500/30 px-6 py-2 flex items-center justify-between text-sm flex-shrink-0">
+        <div class="flex items-center space-x-2 text-amber-300">
+          <i class="fa-solid fa-eye"></i>
+          <span>Estás viendo como <strong>{{ sessionUser?.name }}</strong> <span class="text-amber-400/60 text-xs">({{ sessionUser?.email }})</span></span>
+        </div>
+        <button @click="handleUnimpersonate" class="bg-amber-500/30 hover:bg-amber-500/50 text-amber-200 px-3 py-1 rounded text-xs font-semibold transition-colors">
+          <i class="fa-solid fa-arrow-left mr-1"></i> Volver a admin
+        </button>
+      </div>
       <template v-if="globalView === 'calendar'">
         <header class="h-16 border-b border-bandit-borderDark flex items-center justify-between px-6 bg-[#1e1e1e] flex-shrink-0">
           <div class="flex items-center space-x-6">
@@ -270,7 +280,7 @@
             </button>
           </div>
           <div class="flex flex-1 space-x-6 overflow-hidden">
-            <div class="w-1/3 flex flex-col space-y-4"><div class="flex-1 overflow-y-auto bg-[#1e1e1e] border border-bandit-borderDark rounded-lg divide-y divide-bandit-borderDark custom-scrollbar"><div v-for="c in collaborators" :key="c.id" @click="selectCollaborator(c)" class="p-4 flex items-center justify-between cursor-pointer hover:bg-[#25282b]" :class="{'bg-[#2a2d30]': activeEditCol && activeEditCol.id === c.id}"><div class="flex items-center space-x-3"><div class="w-8 h-8 rounded-full bg-brand/20 text-brand flex items-center justify-center font-bold text-sm">{{ c.name.charAt(0) }}</div><div><p class="text-sm font-semibold text-slate-200">{{ c.name }}</p><p class="text-[10px] text-slate-500">{{ c.email }}</p></div></div><div class="flex items-center space-x-2"><i v-if="isAdmin" class="fa-solid fa-pen text-xs text-slate-500"></i><i v-if="isAdmin && c.status === 'Inactivo'" @click.stop="confirmDeleteCol(c)" class="fa-solid fa-trash-can text-xs text-red-400 hover:text-red-300 cursor-pointer" title="Eliminar permanentemente"></i></div></div></div></div>
+            <div class="w-1/3 flex flex-col space-y-4"><div class="flex-1 overflow-y-auto bg-[#1e1e1e] border border-bandit-borderDark rounded-lg divide-y divide-bandit-borderDark custom-scrollbar"><div v-for="c in collaborators" :key="c.id" @click="selectCollaborator(c)" class="p-4 flex items-center justify-between cursor-pointer hover:bg-[#25282b]" :class="{'bg-[#2a2d30]': activeEditCol && activeEditCol.id === c.id}"><div class="flex items-center space-x-3"><div class="w-8 h-8 rounded-full bg-brand/20 text-brand flex items-center justify-center font-bold text-sm">{{ c.name.charAt(0) }}</div><div><p class="text-sm font-semibold text-slate-200">{{ c.name }}</p><p class="text-[10px] text-slate-500">{{ c.email }}</p></div></div><div class="flex items-center space-x-2"><i v-if="isAdmin && !isImpersonating" @click.stop="handleImpersonate(c.id)" class="fa-solid fa-eye text-xs text-slate-500 hover:text-amber-400 cursor-pointer" title="Ver como este usuario"></i><i v-if="isAdmin" class="fa-solid fa-pen text-xs text-slate-500"></i><i v-if="isAdmin && c.status === 'Inactivo'" @click.stop="confirmDeleteCol(c)" class="fa-solid fa-trash-can text-xs text-red-400 hover:text-red-300 cursor-pointer" title="Eliminar permanentemente"></i></div></div></div></div>
             <div class="w-2/3 bg-[#232528] border border-bandit-borderDark rounded-lg overflow-y-auto custom-scrollbar flex flex-col" v-if="activeEditCol">
               <div class="p-6 border-b border-bandit-borderDark flex justify-between items-center bg-[#2a2d30]">
                 <h3 class="font-bold">{{ isAdmin ? 'Editar colaborador:' : 'Colaborador:' }} {{ activeEditCol.name }}</h3>
@@ -1079,6 +1089,8 @@
         const loginLoading = ref(false);
         const sessionUser = ref(null);
         const sessionPermissions = ref({});
+        const isImpersonating = ref(false);
+        const impersonatedBy = ref(null);
 
         const collaborators = ref([]);
         const activeEditCol = ref(null);
@@ -1326,6 +1338,8 @@
               const data = await res.json();
               sessionUser.value = data.user;
               sessionPermissions.value = data.permissions || {};
+              isImpersonating.value = !!data.impersonating;
+              impersonatedBy.value = data.impersonated_by || null;
               isLoginView.value = false;
               return true;
             }
@@ -1346,6 +1360,8 @@
             if (data.success) {
               sessionUser.value = data.user;
               sessionPermissions.value = data.permissions || {};
+              isImpersonating.value = false;
+              impersonatedBy.value = null;
               isLoginView.value = false;
               loginEmail.value = '';
               loginPassword.value = '';
@@ -1366,7 +1382,42 @@
           } catch (e) { /* ignore */ }
           sessionUser.value = null;
           sessionPermissions.value = {};
+          isImpersonating.value = false;
+          impersonatedBy.value = null;
           isLoginView.value = true;
+        }
+
+        // ── IMPERSONATION ─────────────────────────────────
+        async function handleImpersonate(userId) {
+          try {
+            const res = await fetch(`${API_BASE}/auth/impersonate/${userId}`, { method: 'POST' });
+            if (res.ok) {
+              const data = await res.json();
+              sessionUser.value = data.user;
+              sessionPermissions.value = data.permissions || {};
+              isImpersonating.value = true;
+              // Reload all data as the impersonated user
+              await loadInitialData();
+            } else {
+              const err = await res.json();
+              alert(err.error || 'Error al suplantar usuario');
+            }
+          } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        async function handleUnimpersonate() {
+          try {
+            const res = await fetch(`${API_BASE}/auth/unimpersonate`, { method: 'POST' });
+            if (res.ok) {
+              const data = await res.json();
+              sessionUser.value = data.user;
+              sessionPermissions.value = data.permissions || {};
+              isImpersonating.value = false;
+              impersonatedBy.value = null;
+              // Reload all data as admin
+              await loadInitialData();
+            }
+          } catch (e) { alert('Error: ' + e.message); }
         }
 
         // -- GOOGLE LOGIN ------------------------------------
@@ -2219,7 +2270,7 @@
         return {
           sidebarCollapsed, globalView, showArtistDropdown, collaborators, activeEditCol, showNewColModal, newColForm, colCreating, createCollaborator, hasPerm, hasPermission,
           isLoginView, artistPortada, loginEmail, loginPassword, loginError, loginLoading,
-          sessionUser, sessionPermissions, handleLogin, handleLogout, googleLoginError, handleGoogleLogin,
+          sessionUser, sessionPermissions, isImpersonating, impersonatedBy, handleLogin, handleLogout, googleLoginError, handleGoogleLogin, handleImpersonate, handleUnimpersonate,
           artists, activeArtist, events, crew, activeEditCrew, timelineMonths, currentEvent, activeEventTab, eventTabs, drawerOpen, newEventForm, contractTemplate, contractEditorRef, financesGlobal,
           currentYear, currentMonth, currentMonthName, calendarMode, statusFilters, newTaskText, timelineRef,
           openGlobalView, openEvent, openEventEditor, createNewEventFromDrawer, saveCurrentEvent, deleteCurrentEvent, selectArtist, getEventColor, formatCurrency, formatDateLong, formatDate, uploadArtistImage, uploadContractImage, changeYear, changeMonth, addHotel, addTravelStage, addScheduleItem, addGuest, addEventContact, addAccountingSplit, addTaskToForm, addSingleTask, applyTaskTemplate, uploadEventFile, deleteEventFile, generateContractPDF, exportRoadmapPDF, exportFullRoadmapPDF, importContractDocx, uploadTechnicalRider, uploadTechnicalContraRider, deleteTechnicalRider, deleteTechnicalContraRider, openCrewEditor, closeCrewEditor, saveCrewMember, addCrewMember, addVehicle, deleteCrewMember,
