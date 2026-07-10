@@ -203,8 +203,8 @@
             </div>
           </div>
         </header>
-        <div class="timeline-container custom-scrollbar">
-          <div v-for="month in timelineMonths" :key="month.id" class="month-column">
+        <div ref="timelineRef" class="timeline-container custom-scrollbar">
+          <div v-for="month in timelineMonths" :key="month.id" :id="'mc-' + month.id" class="month-column">
             <div class="month-header capitalize">{{ month.name }} {{ month.year }}</div>
             <div v-for="day in month.days" :key="day.dateStr" class="day-row group">
               <div class="day-label" :class="{'today-highlight': day.isToday}"><span>{{ day.dayNum }}</span><span>{{ day.dayName }}</span></div>
@@ -1308,6 +1308,7 @@
         }
         const modulesList = ref([]);
         const moduleSearch = ref('');
+        const timelineRef = ref(null);
         const matrixPermissions = reactive({});
         const allMatrixActions = ['view','create','edit','delete','share','manage_permissions'];
         const actionLabels = { view:'Ver', create:'Crear', edit:'Editar', delete:'Eliminar', share:'Compartir', manage_permissions:'Admin' };
@@ -1392,7 +1393,7 @@
         const artists = ref([]); const activeArtist = ref({ id: '', name: '', image_url: '', currency: 'EUR' });
         const events = ref([]); const crew = ref([]); const activeEditCrew = ref(null);
         const currentYear = ref(new Date().getFullYear()); const currentMonth = ref(new Date().getMonth());
-        const calendarMode = ref('monthly'); 
+        const calendarMode = ref('yearly'); 
         const statusFilters = reactive({ confirmed: true, reserve: true, option: true, cancelled: true, band_work: true, holidays: true, conflict: true });
 
         function changeYear(dir) { currentYear.value += dir; }
@@ -1440,6 +1441,15 @@
             await loadRoles();
             // Check Google Calendar status
             await checkGoogleStatus();
+            // Scroll to current month
+            await nextTick();
+            const now = new Date();
+            const currentMonthId = `mc-m-${now.getFullYear()}-${now.getMonth()}`;
+            const monthEl = document.getElementById(currentMonthId);
+            const container = timelineRef.value;
+            if (monthEl && container) {
+              container.scrollLeft = monthEl.offsetLeft - container.offsetLeft - 40;
+            }
           } catch (e) {
             console.error("Error loading data:", e);
           }
@@ -2204,7 +2214,7 @@
           isLoginView, artistPortada, loginEmail, loginPassword, loginError, loginLoading,
           sessionUser, sessionPermissions, handleLogin, handleLogout, googleLoginError, handleGoogleLogin,
           artists, activeArtist, events, crew, activeEditCrew, timelineMonths, currentEvent, activeEventTab, eventTabs, drawerOpen, newEventForm, contractTemplate, contractEditorRef, financesGlobal,
-          currentYear, currentMonth, currentMonthName, calendarMode, statusFilters, newTaskText,
+          currentYear, currentMonth, currentMonthName, calendarMode, statusFilters, newTaskText, timelineRef,
           openGlobalView, openEvent, openEventEditor, createNewEventFromDrawer, saveCurrentEvent, deleteCurrentEvent, selectArtist, getEventColor, formatCurrency, formatDateLong, formatDate, uploadArtistImage, uploadContractImage, changeYear, changeMonth, addHotel, addTravelStage, addScheduleItem, addGuest, addEventContact, addAccountingSplit, addTaskToForm, addSingleTask, applyTaskTemplate, uploadEventFile, deleteEventFile, generateContractPDF, exportRoadmapPDF, exportFullRoadmapPDF, importContractDocx, uploadTechnicalRider, uploadTechnicalContraRider, deleteTechnicalRider, deleteTechnicalContraRider, openCrewEditor, closeCrewEditor, saveCrewMember, addCrewMember, addVehicle, deleteCrewMember,
           // Google Calendar
           googleStatus, googleEmail, openGoogleSettings,templatesList, templateCategories, templateFilterType, templateFilterCategory, templateSearch,
