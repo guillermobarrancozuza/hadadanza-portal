@@ -308,6 +308,7 @@ async function revokeGlobalAccess() {
 }
 
 module.exports = {
+  getOAuth2Client,
   // Login (se mantiene)
   getLoginAuthUrl,
   handleCallback,
