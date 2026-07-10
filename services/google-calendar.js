@@ -18,11 +18,11 @@ const DEFAULT_COLOR_ID = 8; // Gray
 // ── STATUS → EMOJI MAP (para Google Calendar summary) ─
 const STATUS_EMOJI_MAP = {
   confirmed: '🟢',
-  reserve:   '🔵',
-  option:    '🟡',
-  cancelled: '⚫',
+  reserve:   '🟡',
+  option:    '🔵',
+  cancelled: '🔴',
   band_work: '🟣',
-  holidays:  '🔴',
+  holidays:  '🟤',
   conflict:  '🟠',
 };
 
