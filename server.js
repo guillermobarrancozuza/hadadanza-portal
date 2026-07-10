@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const session = require('express-session');
-const SQLiteStore = require('connect-sqlite3')(session);
+const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
 
@@ -26,13 +26,50 @@ app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
-// Express Session (persistente en SQLite)
-const sessionDbPath = path.join(__dirname, 'storage', 'sessions.db');
+// Express Session (persistente en SQLite con better-sqlite3)
+const SESSION_DB = path.join(__dirname, 'storage', 'sessions.db');
+const sessionDb = new Database(SESSION_DB);
+sessionDb.exec(`CREATE TABLE IF NOT EXISTS sessions (
+  sid TEXT PRIMARY KEY,
+  data TEXT NOT NULL,
+  expires_at INTEGER NOT NULL
+)`);
+const sessionStore = {
+  get(sid, cb) {
+    try {
+      const row = sessionDb.prepare('SELECT data FROM sessions WHERE sid = ? AND expires_at > ?').get(sid, Date.now());
+      cb(null, row ? JSON.parse(row.data) : null);
+    } catch (e) { cb(e); }
+  },
+  set(sid, sessionData, cb) {
+    try {
+      const data = JSON.stringify(sessionData);
+      const maxAge = sessionData.cookie?.maxAge || 30 * 24 * 60 * 60 * 1000;
+      const expiresAt = Date.now() + maxAge;
+      sessionDb.prepare('INSERT OR REPLACE INTO sessions (sid, data, expires_at) VALUES (?, ?, ?)').run(sid, data, expiresAt);
+      cb(null);
+    } catch (e) { cb(e); }
+  },
+  destroy(sid, cb) {
+    try {
+      sessionDb.prepare('DELETE FROM sessions WHERE sid = ?').run(sid);
+      cb(null);
+    } catch (e) { cb(e); }
+  },
+  touch(sid, sessionData, cb) {
+    try {
+      const maxAge = sessionData.cookie?.maxAge || 30 * 24 * 60 * 60 * 1000;
+      const expiresAt = Date.now() + maxAge;
+      sessionDb.prepare('UPDATE sessions SET expires_at = ? WHERE sid = ?').run(expiresAt, sid);
+      cb(null);
+    } catch (e) { cb(e); }
+  }
+};
 app.use(session({
   secret: config.sessionSecret,
   resave: false,
   saveUninitialized: false,
-  store: new SQLiteStore({ db: sessionDbPath, dir: path.dirname(sessionDbPath) }),
+  store: sessionStore,
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
