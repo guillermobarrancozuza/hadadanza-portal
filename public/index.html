@@ -122,7 +122,7 @@
         <a href="#" @click.prevent="openGlobalView('crew')" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'crew' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-solid fa-users w-6"></i> Crew</a>
         <a href="#" @click.prevent="openGlobalView('collaborators')" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'collaborators' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-regular fa-address-card w-6"></i> Colaboradores</a>
         <a href="#" @click.prevent="openGlobalView('roles')" v-if="isAdmin" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'roles' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-solid fa-lock w-6"></i> Roles</a>
-        <a href="#" @click.prevent="openGlobalView('economy')" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'economy' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-solid fa-dollar-sign w-6"></i> Resumen económico</a>
+        <a href="#" @click.prevent="openGlobalView('economy')" v-if="isAdmin" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'economy' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-solid fa-dollar-sign w-6"></i> Resumen económico</a>
                 <a href="#" @click.prevent="openGlobalView('templates')" class="flex items-center px-5 py-2.5 text-sm transition-colors" :class="globalView === 'templates' ? 'bg-[#2a2d30] border-l-4 border-brand font-semibold text-white' : 'text-slate-400 hover:text-white border-l-4 border-transparent'"><i class="fa-regular fa-file-lines w-6"></i> Archivos</a>
 <a href="#" @click.prevent="showAuditLog = true" v-if="sessionUser?.role_id === 'role-admin'" class="flex items-center px-5 py-2.5 text-sm transition-colors text-slate-600 hover:text-slate-400 border-l-4 border-transparent"><i class="fa-solid fa-history w-6"></i> Auditoría</a>
       </nav>
@@ -411,7 +411,7 @@
         </div>
       </template>
 
-      <template v-if="globalView === 'economy'">
+      <template v-if="globalView === 'economy' && isAdmin">
         <div class="p-8 h-full overflow-y-auto custom-scrollbar flex flex-col space-y-6"><h1 class="text-2xl font-semibold">Resumen económico</h1>
           <div class="flex space-x-6">
             <div class="w-64 bg-[#1e1e1e] border border-[#2a2d30] rounded-lg p-5 flex flex-col space-y-3">
