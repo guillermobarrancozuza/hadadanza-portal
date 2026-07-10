@@ -109,7 +109,7 @@ function writeDb(data) {
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
     return true;
   }
-  catch (err) { console.error('writeDb error:', err.message); return false; }
+  catch (err) { console.error('writeDb error:', err.code, err.message, 'path:', DB_FILE); return false; }
 }
 
 // ── GOOGLE CALENDAR SYNC HELPER ──────────────────────
@@ -289,7 +289,8 @@ app.put('/api/v1/events/:eventId', requireAuth, async (req, res) => {
     if (index !== -1) {
       const oldEvent = { ...db.events[index] };
       db.events[index] = { ...oldEvent, ...req.body };
-      writeDb(db);
+      const written = writeDb(db);
+      if (!written) return res.status(500).json({ error: 'Error al guardar en disco' });
       syncEventToGoogle(db.events[index], 'update').catch(e => console.error('Google sync error:', e));
       res.json({ success: true, event: db.events[index] });
     } else res.status(404).json({ error: 'Not found' });
@@ -303,7 +304,8 @@ app.delete('/api/v1/events/:eventId', requireAuth, (req, res) => {
   const db = readDb(); const index = db.events.findIndex(e => e.id === req.params.eventId);
   if (index !== -1) {
     const deletedEvent = db.events.splice(index, 1)[0];
-    writeDb(db);
+    const written = writeDb(db);
+    if (!written) return res.status(500).json({ error: 'Error al guardar en disco' });
     syncEventToGoogle(deletedEvent, 'delete').catch(e => console.error('Google sync error:', e));
     res.json({ success: true, event: deletedEvent });
   } else { res.status(404).json({ error: 'Event not found' }); }
