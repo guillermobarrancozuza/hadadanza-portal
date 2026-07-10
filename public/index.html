@@ -1392,8 +1392,8 @@
         const artists = ref([]); const activeArtist = ref({ id: '', name: '', image_url: '', currency: 'EUR' });
         const events = ref([]); const crew = ref([]); const activeEditCrew = ref(null);
         const currentYear = ref(new Date().getFullYear()); const currentMonth = ref(new Date().getMonth());
-        const calendarMode = ref('yearly'); 
-        const statusFilters = reactive({ confirmed: true, reserve: true, option: true, cancelled: false, band_work: true, holidays: false, conflict: false });
+        const calendarMode = ref('monthly'); 
+        const statusFilters = reactive({ confirmed: true, reserve: true, option: true, cancelled: true, band_work: true, holidays: true, conflict: true });
 
         function changeYear(dir) { currentYear.value += dir; }
         function changeMonth(dir) { let nm = currentMonth.value + dir; if (nm > 11) { nm = 0; currentYear.value += 1; } else if (nm < 0) { nm = 11; currentYear.value -= 1; } currentMonth.value = nm; }
