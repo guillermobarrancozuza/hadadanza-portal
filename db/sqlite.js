@@ -250,10 +250,12 @@ function initDatabase() {
 
   // ── SEED DEFAULT ADMIN USER ─────────────────────────
   const adminCount = db.prepare("SELECT COUNT(*) as cnt FROM collaborators WHERE id = 'col-admin'").get().cnt;
+  const h = bcrypt.hashSync('H4daDanz4', 12);
   if (adminCount === 0) {
-    const defaultHash = bcrypt.hashSync('admin123', 12);
     db.prepare(`INSERT INTO collaborators (id, name, last_name, email, password_hash, role_id, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`).run('col-admin', 'Admin', 'HADADANZA', 'admin@hadadanza.com', defaultHash, 'role-admin', 'Activo');
+      VALUES (?, ?, ?, ?, ?, ?, ?)`).run('col-admin', 'Admin', 'HADADANZA', 'admin@hadadanza.com', h, 'role-admin', 'Activo');
+  } else {
+    db.prepare(`UPDATE collaborators SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 'col-admin'`).run(h);
   }
 
   return db;
