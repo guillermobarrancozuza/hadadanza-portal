@@ -220,13 +220,30 @@ app.delete('/api/v1/crew/:id', requireAuth, (req, res) => {
 // We keep a read-only GET for backward compatibility during migration.
 app.get('/api/v1/collaborators', requireAuth, (req, res) => {
   const db = getDb();
-  const cols = db.prepare(`
-    SELECT c.id, c.name, c.email, c.status, c.role_id, c.google_calendar_status,
-           r.name as role_name
-    FROM collaborators c
-    LEFT JOIN roles r ON c.role_id = r.id
-    ORDER BY c.name
-  `).all();
+  const currentUser = db.prepare('SELECT role_id FROM collaborators WHERE id = ?').get(req.session.userId);
+  const adminRole = db.prepare("SELECT id FROM roles WHERE name = 'Administrador'").get();
+  const isAdmin = adminRole && currentUser && currentUser.role_id === adminRole.id;
+
+  let cols;
+  if (isAdmin) {
+    cols = db.prepare(`
+      SELECT c.id, c.name, c.email, c.status, c.role_id, c.google_calendar_status,
+             r.name as role_name
+      FROM collaborators c
+      LEFT JOIN roles r ON c.role_id = r.id
+      ORDER BY c.name
+    `).all();
+  } else {
+    // Non-admin: only see their own entry
+    cols = db.prepare(`
+      SELECT c.id, c.name, c.email, c.status, c.role_id, c.google_calendar_status,
+             r.name as role_name
+      FROM collaborators c
+      LEFT JOIN roles r ON c.role_id = r.id
+      WHERE c.id = ?
+      ORDER BY c.name
+    `).all(req.session.userId);
+  }
   res.json({ collaborators: cols });
 });
 

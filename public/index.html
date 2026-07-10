@@ -265,36 +265,36 @@
         <div class="p-8 h-full flex flex-col">
           <div class="flex items-center justify-between mb-6">
             <h1 class="text-2xl font-semibold">Colaboradores</h1>
-            <button @click="showNewColModal = true" class="bg-brand text-white px-4 py-2 rounded text-sm font-semibold flex items-center space-x-2 hover:bg-brand-hover transition-colors">
+            <button v-if="isAdmin" @click="showNewColModal = true" class="bg-brand text-white px-4 py-2 rounded text-sm font-semibold flex items-center space-x-2 hover:bg-brand-hover transition-colors">
               <i class="fa-solid fa-plus"></i><span>Nuevo colaborador</span>
             </button>
           </div>
           <div class="flex flex-1 space-x-6 overflow-hidden">
-            <div class="w-1/3 flex flex-col space-y-4"><div class="flex-1 overflow-y-auto bg-[#1e1e1e] border border-bandit-borderDark rounded-lg divide-y divide-bandit-borderDark custom-scrollbar"><div v-for="c in collaborators" :key="c.id" @click="activeEditCol = c" class="p-4 flex items-center justify-between cursor-pointer hover:bg-[#25282b]" :class="{'bg-[#2a2d30]': activeEditCol && activeEditCol.id === c.id}"><div class="flex items-center space-x-3"><div class="w-8 h-8 rounded-full bg-brand/20 text-brand flex items-center justify-center font-bold text-sm">{{ c.name.charAt(0) }}</div><div><p class="text-sm font-semibold text-slate-200">{{ c.name }}</p><p class="text-[10px] text-slate-500">{{ c.email }}</p></div></div><i class="fa-solid fa-pen text-xs text-slate-500"></i></div></div></div>
+            <div class="w-1/3 flex flex-col space-y-4"><div class="flex-1 overflow-y-auto bg-[#1e1e1e] border border-bandit-borderDark rounded-lg divide-y divide-bandit-borderDark custom-scrollbar"><div v-for="c in collaborators" :key="c.id" @click="selectCollaborator(c)" class="p-4 flex items-center justify-between cursor-pointer hover:bg-[#25282b]" :class="{'bg-[#2a2d30]': activeEditCol && activeEditCol.id === c.id}"><div class="flex items-center space-x-3"><div class="w-8 h-8 rounded-full bg-brand/20 text-brand flex items-center justify-center font-bold text-sm">{{ c.name.charAt(0) }}</div><div><p class="text-sm font-semibold text-slate-200">{{ c.name }}</p><p class="text-[10px] text-slate-500">{{ c.email }}</p></div></div><div class="flex items-center space-x-2"><i v-if="isAdmin" class="fa-solid fa-pen text-xs text-slate-500"></i><i v-if="isAdmin && c.status === 'Inactivo'" @click.stop="confirmDeleteCol(c)" class="fa-solid fa-trash-can text-xs text-red-400 hover:text-red-300 cursor-pointer" title="Eliminar permanentemente"></i></div></div></div></div>
             <div class="w-2/3 bg-[#232528] border border-bandit-borderDark rounded-lg overflow-y-auto custom-scrollbar flex flex-col" v-if="activeEditCol">
               <div class="p-6 border-b border-bandit-borderDark flex justify-between items-center bg-[#2a2d30]">
-                <h3 class="font-bold">Editar colaborador: {{ activeEditCol.name }}</h3>
+                <h3 class="font-bold">{{ isAdmin ? 'Editar colaborador:' : 'Colaborador:' }} {{ activeEditCol.name }}</h3>
                 <div class="flex items-center space-x-3">
-                  <button @click="saveCollaboratorChanges" class="bg-brand text-white px-3 py-1.5 rounded text-xs font-bold"><i class="fa-solid fa-floppy-disk mr-1"></i> Guardar</button>
+                  <button v-if="isAdmin" @click="saveCollaboratorChanges" class="bg-brand text-white px-3 py-1.5 rounded text-xs font-bold"><i class="fa-solid fa-floppy-disk mr-1"></i> Guardar</button>
                   <button @click="activeEditCol=null" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
                 </div>
               </div>
               <div class="p-6 space-y-5 flex-1 overflow-y-auto custom-scrollbar">
                 <div class="grid grid-cols-[100px_1fr] gap-4 items-center text-sm">
                   <span class="text-slate-400 font-medium">Nombre</span>
-                  <input v-model="activeEditCol.name" class="form-input">
+                  <input v-model="activeEditCol.name" class="form-input" :disabled="!isAdmin" :class="{'opacity-60': !isAdmin}">
                   <span class="text-slate-400 font-medium">Email</span>
-                  <input v-model="activeEditCol.email" class="form-input" type="email">
+                  <input v-model="activeEditCol.email" class="form-input" type="email" :disabled="!isAdmin" :class="{'opacity-60': !isAdmin}">
                   <span class="text-slate-400 font-medium">Rol</span>
-                  <select v-model="activeEditCol.role_id" class="form-input bg-[#232528]">
+                  <select v-model="activeEditCol.role_id" class="form-input bg-[#232528]" :disabled="!isAdmin" :class="{'opacity-60': !isAdmin}">
                     <option v-for="r in rolesList" :key="r.id" :value="r.id">{{ r.name }}</option>
                   </select>
                   <span class="text-slate-400 font-medium">Estado</span>
-                  <select v-model="activeEditCol.status" class="form-input bg-[#232528]">
+                  <select v-model="activeEditCol.status" class="form-input bg-[#232528]" :disabled="!isAdmin" :class="{'opacity-60': !isAdmin}">
                     <option>Activo</option><option>Inactivo</option><option>Pendiente</option>
                   </select>
                 </div>
-                <div class="border-t border-bandit-borderDark pt-5 mt-5">
+                <div v-if="isAdmin" class="border-t border-bandit-borderDark pt-5 mt-5">
                   <h4 class="text-sm font-bold text-slate-300 mb-4">Permisos específicos (sobrescriben los del rol)</h4>
                   <div class="flex items-center space-x-2.5 mb-4 flex-wrap gap-y-2">
                     <button @click="matrixSelectAll" class="text-xs px-3 py-1.5 rounded border border-bandit-borderDark hover:bg-[#2a2d30] text-slate-300"><i class="fa-solid fa-check-double mr-1"></i>Todo</button>
@@ -323,9 +323,12 @@
                     </table>
                   </div>
                 </div>
+                <div v-else class="border-t border-bandit-borderDark pt-5 mt-5">
+                  <p class="text-sm text-slate-400">No tienes permisos para modificar colaboradores. Contacta al administrador.</p>
+                </div>
               </div>
             </div>
-            <div v-else class="w-2/3 flex items-center justify-center text-slate-500 border border-bandit-borderDark rounded-lg border-dashed">Selecciona un colaborador para editar sus permisos</div>
+            <div v-else class="w-2/3 flex items-center justify-center text-slate-500 border border-bandit-borderDark rounded-lg border-dashed">Selecciona un colaborador para ver sus datos</div>
           </div>
         </div>
       </template>
@@ -1312,6 +1315,7 @@
           const q = moduleSearch.value.toLowerCase();
           return modulesList.value.filter(m => m.label.toLowerCase().includes(q) || m.id.toLowerCase().includes(q));
         });
+        const isAdmin = computed(() => sessionUser.value?.role_id === 'role-admin');
 
         async function checkSession() {
           try {
@@ -1808,7 +1812,7 @@
 
         // ── COLLABORATOR SAVE ──────────────────────────────
         async function saveCollaboratorChanges() {
-          if (!activeEditCol.value) return;
+          if (!activeEditCol.value || !isAdmin.value) return;
           try {
             // Save basic info
             await fetch(`${API_BASE}/collaborators/${activeEditCol.value.id}`, {
@@ -1864,6 +1868,56 @@
             }
           } catch (e) { alert('Error: ' + e.message); }
           colCreating.value = false;
+        }
+
+        // ── COLLABORATOR SELECT ──────────────────────────────
+        async function selectCollaborator(c) {
+          activeEditCol.value = c;
+          // Load effective permissions: role permissions + user overrides
+          if (isAdmin.value) {
+            try {
+              // Reset matrix to empty first
+              for (const mod of modulesList.value) {
+                matrixPermissions[mod.id] = [];
+              }
+              // 1. Load role permissions first (if role assigned)
+              if (c.role_id) {
+                const roleRes = await fetch(`${API_BASE}/roles/${c.role_id}/permissions`);
+                if (roleRes.ok) {
+                  const roleData = await roleRes.json();
+                  for (const mod of modulesList.value) {
+                    matrixPermissions[mod.id] = roleData.permissions[mod.id] || [];
+                  }
+                }
+              }
+              // 2. Load user-specific overrides (pisan las del rol)
+              const userRes = await fetch(`${API_BASE}/collaborators/${c.id}/permissions`);
+              if (userRes.ok) {
+                const userData = await userRes.json();
+                for (const mod of modulesList.value) {
+                  if (userData.permissions[mod.id]) {
+                    matrixPermissions[mod.id] = userData.permissions[mod.id];
+                  }
+                }
+              }
+            } catch (e) { console.error('Error loading permissions:', e); }
+          }
+        }
+
+        // ── DELETE COLLABORATOR ──────────────────────────────
+        async function confirmDeleteCol(c) {
+          if (!confirm(`¿Eliminar permanentemente a ${c.name}?\n\nEsta acción no se puede deshacer.`)) return;
+          try {
+            const res = await fetch(`${API_BASE}/collaborators/${c.id}`, { method: 'DELETE' });
+            if (res.ok) {
+              collaborators.value = collaborators.value.filter(x => x.id !== c.id);
+              if (activeEditCol.value?.id === c.id) activeEditCol.value = null;
+              alert('Colaborador eliminado');
+            } else {
+              const err = await res.json();
+              alert('Error: ' + (err.error || 'Error al eliminar'));
+            }
+          } catch (e) { alert('Error: ' + e.message); }
         }
 
         async function importContractDocx(event) {
@@ -2150,7 +2204,7 @@
           modulesList, moduleSearch, matrixPermissions, allMatrixActions, actionLabels, filteredModules,
           selectRole, saveRole, createRole, deleteRole, copyFromRole,
           matrixHasPerm, matrixToggle, matrixSelectAll, matrixReadOnly, matrixFullAccess, matrixClear, isActionValid,
-          saveCollaboratorChanges,
+          saveCollaboratorChanges, selectCollaborator, confirmDeleteCol, isAdmin,
           // Audit
           showAuditLog, auditLogs, auditTotal, loadAuditLogs
         };
