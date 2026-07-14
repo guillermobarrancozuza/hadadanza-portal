@@ -50,6 +50,33 @@
     .slide-enter-from, .slide-leave-to { transform: translateX(100%); }
     .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
     .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+    /* ── RESPONSIVE ────────────────────────────── */
+    @media (max-width: 767px) {
+      .cal-header { flex-direction: column; height: auto !important; padding: 0.75rem !important; gap: 0.5rem; }
+      .cal-header-controls { flex-wrap: wrap; gap: 0.5rem; }
+      .cal-header-filters { flex-wrap: wrap; gap: 0.25rem; width: 100%; }
+      .event-tabs-mobile { border-bottom: 1px solid #3c3f43; flex-direction: row !important; overflow-x: auto; white-space: nowrap; flex-shrink: 0; }
+      .event-tabs-mobile a { border-left: none !important; border-bottom: 3px solid transparent; padding: 0.75rem 0.875rem !important; font-size: 12px !important; }
+      .event-tabs-mobile a.active-tab-mobile { border-bottom-color: #FF2A5F !important; background: rgba(255,42,95,0.08) !important; }
+      .form-grid [class*="grid-cols-"] { grid-template-columns: 1fr !important; gap: 0.5rem !important; }
+      .form-grid .form-label { text-align: left !important; padding-right: 0 !important; font-size: 13px !important; padding-bottom: 0 !important; }
+      .form-grid input, .form-grid select, .form-grid textarea { font-size: 16px !important; padding: 10px 12px !important; }
+      .form-grid input.w-1\/3, .form-grid input.w-1\/2, .form-grid input.w-2\/3, .form-grid input.w-1\/4,
+      .form-grid select.w-1\/3, .form-grid select.w-1\/2, .form-grid select.w-2\/3 { width: 100% !important; }
+      .form-grid .w-1\/3, .form-grid .w-1\/2, .form-grid .w-2\/3 { width: 100% !important; }
+      .form-grid .flex:has(.form-input) { flex-wrap: wrap !important; gap: 0.375rem !important; }
+      .form-grid .flex:has(.form-input) > .form-input { min-width: 100px; flex: 1 1 auto; }
+      .form-grid .border-t { margin-top: 0.5rem !important; padding-top: 0.5rem !important; }
+      .form-grid .grid-cols-2, .form-grid .grid-cols-\[1fr_1fr_1fr_1fr_40px\] { grid-template-columns: 1fr !important; }
+      .modal-mobile { width: calc(100% - 2rem) !important; max-width: 100% !important; margin: 0 1rem; max-height: 90vh !important; }
+      .hide-mobile { display: none !important; }
+    }
+    @media (max-width: 639px) {
+      .month-column { min-width: 180px !important; }
+      .day-row { height: 36px !important; }
+      .event-block { height: 24px !important; font-size: 10px !important; }
+    }
   </style>
 </head>
 <body class="h-full flex overflow-hidden">
@@ -104,8 +131,11 @@
     <!-- MAIN APP -->
     <template v-else>
     
+    <!-- SIDEBAR OVERLAY (mobile) -->
+    <div class="fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity duration-300" :class="sidebarCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'" @click="toggleSidebar"></div>
+
     <!-- GLOBAL SIDEBAR -->
-    <aside class="w-56 bg-[#1e1e1e] border-r border-bandit-borderDark flex flex-col z-40 flex-shrink-0">
+    <aside class="w-56 bg-[#1e1e1e] border-r border-bandit-borderDark flex flex-col flex-shrink-0 z-50 fixed md:relative inset-y-0 left-0 transition-transform duration-300" :class="sidebarCollapsed ? '-translate-x-full md:translate-x-0' : 'translate-x-0 md:translate-x-0'">
       <div class="h-40 border-b border-bandit-borderDark relative group overflow-hidden">
         <img :src="activeArtist.image_url" class="w-full h-full object-cover opacity-60 transition-all duration-300 group-hover:blur-sm">
         <div class="absolute inset-0 bg-gradient-to-t from-[#1e1e1e] to-transparent"></div>
@@ -140,6 +170,10 @@
 
     <!-- MAIN CONTENT -->
     <main class="flex-1 flex flex-col overflow-hidden bg-bandit-bgDark relative">
+      <!-- Hamburger button (mobile only) -->
+      <button @click="toggleSidebar" class="fixed top-3 left-3 z-30 md:hidden bg-[#1e1e1e] border border-bandit-borderDark rounded-lg p-2.5 shadow-lg hover:bg-[#2a2d30] transition-colors">
+        <i class="fa-solid fa-bars text-white text-sm"></i>
+      </button>
       <!-- Impersonation banner -->
       <div v-if="isImpersonating" class="bg-amber-500/20 border-b border-amber-500/30 px-6 py-2 flex items-center justify-between text-sm flex-shrink-0">
         <div class="flex items-center space-x-2 text-amber-300">
@@ -151,9 +185,9 @@
         </button>
       </div>
       <template v-if="globalView === 'calendar'">
-        <header class="h-16 border-b border-bandit-borderDark flex items-center justify-between px-6 bg-[#1e1e1e] flex-shrink-0">
-          <div class="flex items-center space-x-6">
-            <h1 class="text-2xl font-semibold">Calendario</h1>
+        <header class="cal-header h-16 border-b border-bandit-borderDark flex items-center justify-between px-6 bg-[#1e1e1e] flex-shrink-0">
+          <div class="cal-header-controls flex items-center flex-wrap gap-2">
+            <h1 class="text-2xl font-semibold hide-mobile">Calendario</h1>
             <button v-if="hasPerm('can_edit_calendar')" @click="openEventEditor(null)" class="bg-brand hover:bg-brand-hover text-white px-4 py-1.5 rounded text-sm font-semibold flex items-center space-x-2"><i class="fa-solid fa-plus"></i><span>Crear evento</span></button>
             <select v-model="calendarMode" class="bg-[#2a2d30] rounded border border-bandit-borderDark px-3 py-1.5 text-sm cursor-pointer hover:bg-[#33363a] outline-none text-white"><option value="yearly">Anual</option><option value="monthly">Mensual</option></select>
             <div class="flex items-center space-x-1">
@@ -167,7 +201,7 @@
                <button @click="changeMonth(1)" class="bg-[#2a2d30] border border-bandit-borderDark px-2 py-1.5 rounded hover:bg-[#33363a]"><i class="fa-solid fa-chevron-right text-xs"></i></button>
             </div>
           </div>
-          <div class="flex items-center space-x-4 text-[10px] font-semibold text-slate-300">
+          <div class="cal-header-filters flex items-center space-x-4 text-[10px] font-semibold text-slate-300">
             <label class="flex items-center space-x-1.5"><input type="checkbox" v-model="statusFilters.confirmed" class="accent-[#2ECC71]"> <span>Confirmado</span></label>
             <label class="flex items-center space-x-1.5"><input type="checkbox" v-model="statusFilters.reserve" class="accent-[#3498DB]"> <span>Reserva</span></label>
             <label class="flex items-center space-x-1.5"><input type="checkbox" v-model="statusFilters.option" class="accent-[#F59E0B]"> <span>Propuesta</span></label>
@@ -229,12 +263,12 @@
 
       <!-- GLOBAL VIEWS (CREW, ECONOMY, COLLABS) -->
       <template v-if="globalView === 'crew'">
-        <div class="p-8 h-full flex flex-col"><h1 class="text-2xl font-semibold mb-6">Crew</h1>
-          <div class="flex space-x-3 mb-6">
+        <div class="p-4 md:p-8 h-full flex flex-col"><h1 class="text-xl md:text-2xl font-semibold mb-6">Crew</h1>
+          <div class="flex flex-wrap gap-3 mb-6">
             <button @click="addCrewMember" class="bg-brand text-white px-4 py-2 rounded text-sm font-semibold flex items-center space-x-2"><i class="fa-solid fa-plus"></i><span>Añadir miembro</span></button>
             <button @click="addVehicle" class="bg-brand text-white px-4 py-2 rounded text-sm font-semibold flex items-center space-x-2"><i class="fa-solid fa-truck"></i><span>Añadir vehículo</span></button>
           </div>
-          <div class="flex flex-1 space-x-6 overflow-hidden">
+          <div class="flex flex-1 flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-6 overflow-hidden">
             <!-- Left: Table -->
             <div class="bg-[#1e1e1e] border border-bandit-borderDark rounded-lg overflow-hidden flex flex-col flex-1">
               <div class="overflow-x-auto custom-scrollbar flex-1">
@@ -244,7 +278,7 @@
               </div>
             </div>
             <!-- Right: Edit Panel -->
-            <div class="w-96 bg-[#232528] border border-bandit-borderDark rounded-lg overflow-y-auto custom-scrollbar flex flex-col" v-if="activeEditCrew">
+            <div class="w-full md:w-96 bg-[#232528] border border-bandit-borderDark rounded-lg overflow-y-auto custom-scrollbar flex flex-col" v-if="activeEditCrew">
               <div class="p-5 border-b border-bandit-borderDark flex justify-between items-center bg-[#2a2d30]">
                 <h3 class="font-bold text-sm text-white">Editar: {{ activeEditCrew.name }}</h3>
                 <button @click="closeCrewEditor" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
@@ -271,18 +305,18 @@
         </div>
       </template>
       <template v-if="globalView === 'collaborators'">
-        <div class="p-8 h-full flex flex-col">
-          <div class="flex items-center justify-between mb-6">
-            <h1 class="text-2xl font-semibold">Colaboradores</h1>
+        <div class="p-4 md:p-8 h-full flex flex-col">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+            <h1 class="text-xl md:text-2xl font-semibold">Colaboradores</h1>
             <button v-if="isAdmin" @click="showNewColModal = true" class="bg-brand text-white px-4 py-2 rounded text-sm font-semibold flex items-center space-x-2 hover:bg-brand-hover transition-colors">
               <i class="fa-solid fa-plus"></i><span>Nuevo colaborador</span>
             </button>
           </div>
-          <div class="flex flex-1 space-x-6 overflow-hidden">
-            <div class="w-1/3 flex flex-col space-y-4"><div class="flex-1 overflow-y-auto bg-[#1e1e1e] border border-bandit-borderDark rounded-lg divide-y divide-bandit-borderDark custom-scrollbar"><div v-for="c in collaborators" :key="c.id" @click="selectCollaborator(c)" class="p-4 flex items-center justify-between cursor-pointer hover:bg-[#25282b]" :class="{'bg-[#2a2d30]': activeEditCol && activeEditCol.id === c.id}"><div class="flex items-center space-x-3"><div class="w-8 h-8 rounded-full bg-brand/20 text-brand flex items-center justify-center font-bold text-sm">{{ c.name.charAt(0) }}</div><div><p class="text-sm font-semibold text-slate-200">{{ c.name }}</p><p class="text-[10px] text-slate-500">{{ c.email }}</p></div></div><div class="flex items-center space-x-2"><i v-if="isAdmin && !isImpersonating" @click.stop="handleImpersonate(c.id)" class="fa-solid fa-eye text-xs text-slate-500 hover:text-amber-400 cursor-pointer" title="Ver como este usuario"></i><i v-if="isAdmin" class="fa-solid fa-pen text-xs text-slate-500"></i><i v-if="isAdmin && c.status === 'Inactivo'" @click.stop="confirmDeleteCol(c)" class="fa-solid fa-trash-can text-xs text-red-400 hover:text-red-300 cursor-pointer" title="Eliminar permanentemente"></i></div></div></div></div>
-            <div class="w-2/3 bg-[#232528] border border-bandit-borderDark rounded-lg overflow-y-auto custom-scrollbar flex flex-col" v-if="activeEditCol">
-              <div class="p-6 border-b border-bandit-borderDark flex justify-between items-center bg-[#2a2d30]">
-                <h3 class="font-bold">{{ isAdmin ? 'Editar colaborador:' : 'Colaborador:' }} {{ activeEditCol.name }}</h3>
+          <div class="flex flex-1 flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-6 overflow-hidden">
+            <div class="w-full md:w-1/3 flex flex-col space-y-4"><div class="flex-1 overflow-y-auto bg-[#1e1e1e] border border-bandit-borderDark rounded-lg divide-y divide-bandit-borderDark custom-scrollbar"><div v-for="c in collaborators" :key="c.id" @click="selectCollaborator(c)" class="p-4 flex items-center justify-between cursor-pointer hover:bg-[#25282b]" :class="{'bg-[#2a2d30]': activeEditCol && activeEditCol.id === c.id}"><div class="flex items-center space-x-3"><div class="w-8 h-8 rounded-full bg-brand/20 text-brand flex items-center justify-center font-bold text-sm">{{ c.name.charAt(0) }}</div><div><p class="text-sm font-semibold text-slate-200">{{ c.name }}</p><p class="text-[10px] text-slate-500">{{ c.email }}</p></div></div><div class="flex items-center space-x-2"><i v-if="isAdmin && !isImpersonating" @click.stop="handleImpersonate(c.id)" class="fa-solid fa-eye text-xs text-slate-500 hover:text-amber-400 cursor-pointer" title="Ver como este usuario"></i><i v-if="isAdmin" class="fa-solid fa-pen text-xs text-slate-500"></i><i v-if="isAdmin && c.status === 'Inactivo'" @click.stop="confirmDeleteCol(c)" class="fa-solid fa-trash-can text-xs text-red-400 hover:text-red-300 cursor-pointer" title="Eliminar permanentemente"></i></div></div></div></div>
+            <div class="w-full md:w-2/3 bg-[#232528] border border-bandit-borderDark rounded-lg overflow-y-auto custom-scrollbar flex flex-col" v-if="activeEditCol">
+              <div class="p-4 md:p-6 border-b border-bandit-borderDark flex justify-between items-center bg-[#2a2d30]">
+                <h3 class="font-bold text-sm md:text-base">{{ isAdmin ? 'Editar colaborador:' : 'Colaborador:' }} {{ activeEditCol.name }}</h3>
                 <div class="flex items-center space-x-3">
                   <button v-if="isAdmin" @click="saveCollaboratorChanges" class="bg-brand text-white px-3 py-1.5 rounded text-xs font-bold"><i class="fa-solid fa-floppy-disk mr-1"></i> Guardar</button>
                   <button @click="activeEditCol=null" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
@@ -344,9 +378,9 @@
 
       <!-- ROLES VIEW -->
       <template v-if="globalView === 'roles' && isAdmin">
-        <div class="p-8 h-full flex flex-col"><h1 class="text-2xl font-semibold mb-6">Roles y Permisos</h1>
-          <div class="flex flex-1 space-x-6 overflow-hidden">
-            <div class="w-1/3 flex flex-col space-y-4">
+        <div class="p-4 md:p-8 h-full flex flex-col"><h1 class="text-xl md:text-2xl font-semibold mb-6">Roles y Permisos</h1>
+          <div class="flex flex-1 flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-6 overflow-hidden">
+            <div class="w-full md:w-1/3 flex flex-col space-y-4">
               <button @click="createRole" class="bg-brand text-white px-4 py-2 rounded text-sm font-semibold flex items-center space-x-2 w-full justify-center"><i class="fa-solid fa-plus"></i><span>Crear nuevo rol</span></button>
               <div class="flex-1 overflow-y-auto bg-[#1e1e1e] border border-bandit-borderDark rounded-lg divide-y divide-bandit-borderDark custom-scrollbar">
                 <div v-for="r in rolesList" :key="r.id" @click="selectRole(r)" class="p-4 cursor-pointer hover:bg-[#25282b]" :class="{'bg-[#2a2d30] border-l-2 border-brand': activeRoleId === r.id}">
@@ -363,11 +397,11 @@
                 </div>
               </div>
             </div>
-            <div class="w-2/3 bg-[#232528] border border-bandit-borderDark rounded-lg overflow-y-auto custom-scrollbar flex flex-col" v-if="activeRoleId">
-              <div class="p-6 border-b border-bandit-borderDark bg-[#2a2d30] flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                  <input v-model="activeRoleName" class="form-input text-lg font-bold w-64" placeholder="Nombre del rol">
-                  <input v-model="activeRoleDesc" class="form-input text-sm text-slate-400 w-48" placeholder="Descripción">
+            <div class="w-full md:w-2/3 bg-[#232528] border border-bandit-borderDark rounded-lg overflow-y-auto custom-scrollbar flex flex-col" v-if="activeRoleId">
+              <div class="p-4 md:p-6 border-b border-bandit-borderDark bg-[#2a2d30] flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div class="flex flex-col md:flex-row md:items-center gap-2 md:space-x-3">
+                  <input v-model="activeRoleName" class="form-input text-base md:text-lg font-bold w-full md:w-64" placeholder="Nombre del rol">
+                  <input v-model="activeRoleDesc" class="form-input text-sm text-slate-400 w-full md:w-48" placeholder="Descripción">
                 </div>
                 <div class="flex items-center space-x-2">
                   <button @click="saveRole" class="bg-brand text-white px-4 py-1.5 rounded text-xs font-bold"><i class="fa-solid fa-floppy-disk mr-1"></i> Guardar</button>
@@ -412,9 +446,9 @@
       </template>
 
       <template v-if="globalView === 'economy' && isAdmin">
-        <div class="p-8 h-full overflow-y-auto custom-scrollbar flex flex-col space-y-6"><h1 class="text-2xl font-semibold">Resumen económico</h1>
-          <div class="flex space-x-6">
-            <div class="w-64 bg-[#1e1e1e] border border-[#2a2d30] rounded-lg p-5 flex flex-col space-y-3">
+        <div class="p-4 md:p-8 h-full overflow-y-auto custom-scrollbar flex flex-col space-y-6"><h1 class="text-xl md:text-2xl font-semibold">Resumen económico</h1>
+          <div class="flex flex-col md:flex-row md:space-x-6 space-y-4 md:space-y-0">
+            <div class="w-full md:w-64 bg-[#1e1e1e] border border-[#2a2d30] rounded-lg p-5 flex flex-col space-y-3">
               <div class="flex justify-between items-center text-sm"><span class="text-slate-400">Ingresos</span><span>{{ formatCurrency(financesGlobal.incomes) }}</span></div><div class="flex justify-between items-center text-sm"><span class="text-slate-400">Gastos</span><span>0 €</span></div>
               <div class="flex justify-between items-center text-sm font-bold pt-3 border-t border-[#2a2d30]"><span>Beneficios</span><span class="text-white">{{ formatCurrency(financesGlobal.incomes) }}</span></div>
             </div>
@@ -424,13 +458,15 @@
               <div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex space-x-4 text-[10px] text-slate-500"><span class="flex items-center"><div class="w-3 h-0.5 bg-brand mr-1"></div> Hadadanza</span></div>
             </div>
           </div>
-          <div class="bg-[#1e1e1e] border border-bandit-borderDark rounded-lg overflow-hidden flex flex-col">
+          <div class="bg-[#1e1e1e] border border-bandit-borderDark rounded-lg flex flex-col">
             <div class="p-4 border-b border-bandit-borderDark flex items-center space-x-4"><span class="text-sm font-semibold">{{ events.length }} conciertos</span></div>
-            <table class="w-full text-left text-xs whitespace-nowrap"><thead class="text-[#7f8389] bg-[#232528] border-b border-bandit-borderDark uppercase text-[10px]"><tr><th class="p-3 font-semibold">FECHA v</th><th class="p-3 font-semibold">NOMBRE</th><th class="p-3 font-semibold text-right">INGRESOS</th><th class="p-3 font-semibold text-right">GASTOS</th><th class="p-3 font-semibold text-right">BENEFICIOS</th><th class="p-3 font-semibold text-right">HADADANZA</th></tr></thead>
-              <tbody class="divide-y divide-bandit-borderDark/50">
-                <tr v-for="evt in sortedEvents" :key="evt.id" class="hover:bg-[#2a2d30] cursor-pointer" @click="openEvent(evt)"><td class="p-3 text-slate-300">{{ formatDate(evt.start_date) }}</td><td class="p-3 font-medium text-slate-200">{{ evt.title }}</td><td class="p-3 text-right text-slate-300">{{ formatCurrency(evt.guarantee_amount) }}</td><td class="p-3 text-right text-slate-300">0 €</td><td class="p-3 text-right text-slate-300">{{ formatCurrency(evt.guarantee_amount) }}</td><td class="p-3 text-right text-slate-300">{{ formatCurrency(evt.guarantee_amount) }}</td></tr>
-              </tbody>
-            </table>
+            <div class="overflow-x-auto custom-scrollbar">
+              <table class="w-full text-left text-xs whitespace-nowrap"><thead class="text-[#7f8389] bg-[#232528] border-b border-bandit-borderDark uppercase text-[10px]"><tr><th class="p-3 font-semibold">FECHA v</th><th class="p-3 font-semibold">NOMBRE</th><th class="p-3 font-semibold text-right">INGRESOS</th><th class="p-3 font-semibold text-right">GASTOS</th><th class="p-3 font-semibold text-right">BENEFICIOS</th><th class="p-3 font-semibold text-right">HADADANZA</th></tr></thead>
+                <tbody class="divide-y divide-bandit-borderDark/50">
+                  <tr v-for="evt in sortedEvents" :key="evt.id" class="hover:bg-[#2a2d30] cursor-pointer" @click="openEvent(evt)"><td class="p-3 text-slate-300">{{ formatDate(evt.start_date) }}</td><td class="p-3 font-medium text-slate-200">{{ evt.title }}</td><td class="p-3 text-right text-slate-300">{{ formatCurrency(evt.guarantee_amount) }}</td><td class="p-3 text-right text-slate-300">0 €</td><td class="p-3 text-right text-slate-300">{{ formatCurrency(evt.guarantee_amount) }}</td><td class="p-3 text-right text-slate-300">{{ formatCurrency(evt.guarantee_amount) }}</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </template>
@@ -442,21 +478,21 @@
       <!-- TEMPLATES / ARCHIVOS GLOBAL VIEW        -->
       <!--=========================================-->
       <template v-if="globalView === 'templates'">
-        <div class="p-8 h-full overflow-y-auto custom-scrollbar flex flex-col space-y-6">
-          <div class="flex items-center justify-between mb-4">
-            <h1 class="text-2xl font-semibold">Archivos <span class="text-xs text-slate-500 font-normal ml-2">Plantillas reutilizables</span></h1>
-            <div class="flex items-center space-x-3">
-              <div class="flex items-center space-x-2 text-xs">
-                <select v-model="templateFilterType" class="form-input text-xs py-1 w-28">
+        <div class="p-4 md:p-8 h-full overflow-y-auto custom-scrollbar flex flex-col space-y-6">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+            <h1 class="text-xl md:text-2xl font-semibold">Archivos <span class="text-xs text-slate-500 font-normal ml-2">Plantillas reutilizables</span></h1>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:space-x-3">
+              <div class="flex flex-wrap items-center gap-2 text-xs">
+                <select v-model="templateFilterType" class="form-input text-xs py-1 w-auto min-w-[90px]">
                   <option value="">Todos</option>
                   <option value="contract">Contrato</option>
                   <option value="technical">Técnico</option>
                 </select>
-                <select v-model="templateFilterCategory" class="form-input text-xs py-1 w-32">
+                <select v-model="templateFilterCategory" class="form-input text-xs py-1 w-auto min-w-[120px]">
                   <option value="">Todas las categorías</option>
                   <option v-for="cat in templateCategories" :key="cat" :value="cat">{{ cat }}</option>
                 </select>
-                <input v-model="templateSearch" placeholder="Buscar..." class="form-input text-xs py-1 w-36">
+                <input v-model="templateSearch" placeholder="Buscar..." class="form-input text-xs py-1 w-auto min-w-[100px]">
               </div>
               <button @click="openTemplateEditor(null)" class="bg-brand text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-brand-hover flex items-center space-x-1.5">
                 <i class="fa-solid fa-plus"></i><span>Nueva plantilla</span>
@@ -501,36 +537,37 @@
 
       <div v-if="globalView === 'event' && currentEvent" class="absolute inset-0 bg-[#232528] z-30 flex flex-col">
         <!-- Event Header -->
-        <header class="h-16 border-b border-[#3c3f43] bg-[#1e1e1e] flex items-center justify-between px-6 flex-shrink-0">
-          <div class="flex items-center space-x-4">
-            <button @click="openGlobalView('calendar')" class="text-slate-400 hover:text-white px-2"><i class="fa-solid fa-arrow-left"></i></button>
-            <h1 class="text-xl font-bold">{{ currentEvent.title || 'Evento sin título' }}</h1>
-            <span class="text-xs text-slate-400 flex items-center"><i class="fa-solid fa-location-dot mr-1"></i> {{ currentEvent.city || 'Ciudad...' }}</span>
+        <!-- Event Header -->
+        <header class="h-auto min-h-[3.5rem] border-b border-[#3c3f43] bg-[#1e1e1e] flex flex-col md:flex-row md:items-center md:justify-between px-3 md:px-6 py-2 md:py-0 gap-2 flex-shrink-0">
+          <div class="flex items-center flex-wrap gap-2">
+            <button @click="openGlobalView('calendar')" class="text-slate-400 hover:text-white px-1"><i class="fa-solid fa-arrow-left"></i></button>
+            <h1 class="text-base md:text-xl font-bold truncate max-w-[200px] md:max-w-none">{{ currentEvent.title || 'Evento sin título' }}</h1>
+            <span class="text-[10px] md:text-xs text-slate-400 flex items-center"><i class="fa-solid fa-location-dot mr-1"></i> {{ currentEvent.city || 'Ciudad...' }}</span>
             <select v-model="currentEvent.status" :disabled="!hasPerm('can_edit_calendar')" class="px-2 py-1 rounded text-[10px] font-bold text-white uppercase outline-none cursor-pointer appearance-none" :style="{ backgroundColor: getEventColor(currentEvent.status) }">
               <option value="confirmed" class="bg-[#232528] text-white">Confirmado</option><option value="reserve" class="bg-[#232528] text-white">Reserva</option><option value="option" class="bg-[#232528] text-white">Propuesta</option><option value="cancelled" class="bg-[#232528] text-white">Cancelado</option><option value="band_work" class="bg-[#232528] text-white">Trabajo Grupo</option><option value="holidays" class="bg-[#232528] text-white">Vacaciones</option><option value="conflict" class="bg-[#232528] text-white">Conflicto</option>
             </select>
-            <span class="text-xs text-slate-400 flex items-center"><i class="fa-regular fa-calendar mr-1"></i> {{ formatDateLong(currentEvent.start_date) }}</span>
+            <span class="text-[10px] md:text-xs text-slate-400 flex items-center"><i class="fa-regular fa-calendar mr-1"></i> {{ formatDateLong(currentEvent.start_date) }}</span>
           </div>
-          <div class="flex items-center space-x-3 text-xs text-slate-400">
-            <button v-if="hasPerm('can_edit_calendar')" @click="saveCurrentEvent" class="bg-brand hover:bg-brand-hover text-white px-4 py-1.5 rounded font-semibold shadow-sm text-sm">Guardar Cambios</button>
-            <button v-if="hasPerm('can_edit_calendar')" @click="deleteCurrentEvent" class="bg-red-500/20 hover:bg-red-500/30 text-red-400 px-3 py-1.5 rounded font-semibold text-sm border border-red-500/30"><i class="fa-solid fa-trash-can mr-1"></i> Eliminar</button>
-            <label class="flex items-center space-x-1.5 text-xs cursor-pointer select-none border-l border-[#3c3f43] pl-3" :class="currentEvent.roadmap_completed ? 'text-green-400' : 'text-slate-400'">
-              <input type="checkbox" v-model="currentEvent.roadmap_completed" class="accent-green-500 w-3.5 h-3.5">
-              <span>Hoja de ruta: <span class="font-bold" :class="currentEvent.roadmap_completed ? 'text-green-400' : 'text-slate-500'">{{ currentEvent.roadmap_completed ? 'Hecha' : 'Pendiente' }}</span></span>
+          <div class="flex items-center flex-wrap gap-2 text-[10px] md:text-xs text-slate-400">
+            <button v-if="hasPerm('can_edit_calendar')" @click="saveCurrentEvent" class="bg-brand hover:bg-brand-hover text-white px-3 py-1 rounded font-semibold shadow-sm text-xs md:text-sm">Guardar</button>
+            <button v-if="hasPerm('can_edit_calendar')" @click="deleteCurrentEvent" class="bg-red-500/20 hover:bg-red-500/30 text-red-400 px-2 py-1 rounded font-semibold text-xs md:text-sm border border-red-500/30"><i class="fa-solid fa-trash-can md:mr-1"></i><span class="hidden md:inline"> Eliminar</span></button>
+            <label class="flex items-center space-x-1 text-xs cursor-pointer select-none border-l border-[#3c3f43] pl-2 md:pl-3" :class="currentEvent.roadmap_completed ? 'text-green-400' : 'text-slate-400'">
+              <input type="checkbox" v-model="currentEvent.roadmap_completed" class="accent-green-500 w-3 h-3 md:w-3.5 md:h-3.5">
+              <span class="hidden md:inline">Hoja de ruta: </span><span class="font-bold" :class="currentEvent.roadmap_completed ? 'text-green-400' : 'text-slate-500'">{{ currentEvent.roadmap_completed ? 'Hecha' : 'Pendiente' }}</span>
             </label>
           </div>
         </header>
 
-        <div class="flex flex-1 overflow-hidden">
-          <!-- Event Sidebar -->
-          <aside class="w-56 bg-[#1e1e1e] border-r border-[#3c3f43] flex flex-col flex-shrink-0 py-2 overflow-y-auto custom-scrollbar">
-            <a v-for="tab in eventTabs" :key="tab.id" href="#" @click.prevent="activeEventTab = tab.id" class="flex items-center px-5 py-2.5 text-[11px] font-semibold transition-colors" :class="activeEventTab === tab.id ? 'bg-[#2a2d30] border-l-4 border-brand text-white' : 'text-slate-400 hover:text-white hover:bg-[#25282b] border-l-4 border-transparent'">
+        <div class="flex flex-1 flex-col md:flex-row overflow-hidden">
+          <!-- Event Sidebar (vertical desktop, horizontal mobile) -->
+          <aside class="event-tabs-mobile w-full md:w-56 bg-[#1e1e1e] border-r border-[#3c3f43] flex flex-col md:flex-col flex-shrink-0 py-2 overflow-y-auto md:overflow-y-auto overflow-x-auto md:overflow-x-hidden custom-scrollbar">
+            <a v-for="tab in eventTabs" :key="tab.id" href="#" @click.prevent="activeEventTab = tab.id" class="flex items-center px-5 py-2.5 text-[11px] font-semibold transition-colors whitespace-nowrap" :class="activeEventTab === tab.id ? 'bg-[#2a2d30] border-l-4 md:border-l-4 border-b-4 md:border-b-0 border-brand text-white active-tab-mobile' : 'text-slate-400 hover:text-white hover:bg-[#25282b] border-l-4 border-transparent border-b-4 md:border-b-0 border-transparent'">
               <div class="w-6 flex justify-center"><i class="fa-solid" :class="tab.icon"></i></div> <span>{{ tab.label }}</span>
             </a>
           </aside>
 
           <!-- Event Content Area (Forms) -->
-          <div class="flex-1 overflow-y-auto p-8 custom-scrollbar bg-[#232528]">
+          <div class="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar bg-[#232528] form-grid">
             
             <!-- 1. Información Básica -->
             <div v-if="activeEventTab === 'info'" class="max-w-3xl space-y-4">
@@ -610,9 +647,9 @@
                   </label>
                 </div>
               </div>
-              <div class="bg-[#1e1e1e] border border-[#3c3f43] rounded overflow-hidden">
+              <div class="bg-[#1e1e1e] border border-[#3c3f43] rounded overflow-x-auto">
                 <table class="w-full text-left text-xs">
-                  <thead class="text-[#7f8389] border-b border-[#3c3f43]"><tr><th class="p-3 font-normal">NOMBRE</th><th class="p-3 font-normal">TAMAÑO</th><th class="p-3 font-normal text-right">ACCIONES</th></tr></thead>
+                  <thead class="text-[#7f8389] border-b border-[#3c3f43]"><tr><th class="p-3 font-normal whitespace-nowrap">NOMBRE</th><th class="p-3 font-normal whitespace-nowrap">TAMAÑO</th><th class="p-3 font-normal text-right whitespace-nowrap">ACCIONES</th></tr></thead>
                   <tbody class="divide-y divide-[#3c3f43]">
                     <tr v-for="f in currentEvent.files" :key="f.id" class="hover:bg-[#25282b] group">
                       <td class="p-3 font-medium text-slate-200 flex items-center space-x-2"><i class="fa-solid fa-file-pdf text-slate-400"></i><span>{{ f.name }}</span></td><td class="p-3 text-slate-400">{{ f.size }}</td>
@@ -627,16 +664,16 @@
             <!-- 5. Contrato -->
             <div v-if="activeEventTab === 'contract'" class="h-full flex flex-col min-h-[600px]">
               <div class="flex items-center space-x-2 text-slate-300 font-bold mb-4 border-b border-[#3c3f43] pb-2 flex-shrink-0"><i class="fa-solid fa-file-signature"></i> <h2>Contratos del Evento</h2></div>
-              <div v-if="hasPerm('can_view_finances')" class="flex-1 flex space-x-6">
-                <div class="w-1/3 space-y-4">
-                  <div class="grid grid-cols-[80px_1fr] gap-3 items-center"><label class="text-right text-xs text-slate-500">Estado</label><select v-model="currentEvent.has_contract" class="form-input bg-[#232528]"><option :value="false">Borrador</option><option :value="true">Firmado</option></select></div>
-                  <div class="grid grid-cols-[80px_1fr] gap-3 items-start"><label class="text-right text-xs text-slate-500 pt-1.5">Notas</label><textarea rows="3" class="form-input"></textarea></div>
+              <div v-if="hasPerm('can_view_finances')" class="flex-1 flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-6">
+                <div class="w-full md:w-1/3 space-y-4">
+                   <div class="grid grid-cols-[80px_1fr] gap-3 items-center"><label class="form-label">Estado</label><select v-model="currentEvent.has_contract" class="form-input bg-[#232528]"><option :value="false">Borrador</option><option :value="true">Firmado</option></select></div>
+                   <div class="grid grid-cols-[80px_1fr] gap-3 items-start"><label class="form-label pt-1.5">Notas</label><textarea rows="3" class="form-input"></textarea></div>
                   <div class="mt-6 pt-4 border-t border-[#3c3f43]">
                     <h4 class="text-sm font-semibold mb-4 text-slate-300">Datos del Firmante</h4>
                     <div class="space-y-3">
-                      <div class="grid grid-cols-[80px_1fr] gap-3 items-center"><label class="text-right text-xs text-slate-500">Firmante</label><input type="text" class="form-input"></div>
-                      <div class="grid grid-cols-[80px_1fr] gap-3 items-center"><label class="text-right text-xs text-slate-500">Empresa</label><input type="text" class="form-input"></div>
-                      <div class="grid grid-cols-[80px_1fr] gap-3 items-center"><label class="text-right text-xs text-slate-500">NIF/CIF</label><input type="text" class="form-input"></div>
+                       <div class="grid grid-cols-[80px_1fr] gap-3 items-center"><label class="form-label">Firmante</label><input type="text" class="form-input"></div>
+                       <div class="grid grid-cols-[80px_1fr] gap-3 items-center"><label class="form-label">Empresa</label><input type="text" class="form-input"></div>
+                       <div class="grid grid-cols-[80px_1fr] gap-3 items-center"><label class="form-label">NIF/CIF</label><input type="text" class="form-input"></div>
                     </div>
                   </div>
                   <div class="mt-6 pt-4 border-t border-[#3c3f43]">
@@ -669,8 +706,8 @@
                     </div>
                   </div>
                 </div>
-                <div class="w-2/3 flex flex-col h-full space-y-2">
-                  <div class="flex justify-end space-x-2">
+                <div class="w-full md:w-2/3 flex flex-col h-full space-y-2">
+                  <div class="flex flex-wrap justify-end gap-2">
                     <label class="bg-[#2a2d30] border border-[#3c3f43] text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-[#33363a] cursor-pointer">
                       <i class="fa-solid fa-upload mr-1"></i> Importar .docx
                       <input type="file" @change="importContractDocx" class="hidden" accept=".docx">
@@ -708,10 +745,12 @@
               <div class="grid grid-cols-[140px_1fr] gap-4 items-start"><label class="form-label pt-1.5">Reglas de la lista</label><textarea v-model="currentEvent.guests.notes" rows="2" class="form-input"></textarea></div>
               <div class="grid grid-cols-[140px_1fr] gap-4 items-center"><label class="form-label">Cupo máximo</label><input type="number" v-model="currentEvent.guests.available" class="form-input w-1/4"></div>
               <div class="flex justify-between items-center mt-8 border-b border-[#3c3f43] pb-2"><h3 class="font-bold text-sm text-slate-300">Invitados Registrados</h3><button @click="addGuest" class="bg-brand text-white px-3 py-1.5 rounded text-xs font-semibold">+ Añadir invitado</button></div>
-              <table class="w-full text-left text-xs" v-if="currentEvent.guests.list && currentEvent.guests.list.length">
-                <thead class="text-[#7f8389] border-b border-[#3c3f43]"><tr><th class="p-2">NOMBRE</th><th class="p-2">ACOMP.</th><th class="p-2">INVITADO POR</th><th class="p-2">NOTAS</th><th class="p-2"></th></tr></thead>
-                <tbody><tr v-for="(g, idx) in currentEvent.guests.list" :key="idx" class="border-b border-[#3c3f43]"><td class="p-2"><input type="text" v-model="g.name" class="form-input"></td><td class="p-2"><input type="number" v-model="g.companions" class="form-input w-16"></td><td class="p-2"><input type="text" v-model="g.invited_by" class="form-input"></td><td class="p-2"><input type="text" v-model="g.notes" class="form-input"></td><td class="p-2 text-right"><button @click="currentEvent.guests.list.splice(idx,1)" class="text-red-500"><i class="fa-solid fa-trash-can"></i></button></td></tr></tbody>
-              </table>
+              <div class="overflow-x-auto" v-if="currentEvent.guests.list && currentEvent.guests.list.length">
+                <table class="w-full text-left text-xs">
+                  <thead class="text-[#7f8389] border-b border-[#3c3f43]"><tr><th class="p-2 whitespace-nowrap">NOMBRE</th><th class="p-2 whitespace-nowrap">ACOMP.</th><th class="p-2 whitespace-nowrap">INVITADO POR</th><th class="p-2 whitespace-nowrap">NOTAS</th><th class="p-2"></th></tr></thead>
+                  <tbody><tr v-for="(g, idx) in currentEvent.guests.list" :key="idx" class="border-b border-[#3c3f43]"><td class="p-2 whitespace-nowrap"><input type="text" v-model="g.name" class="form-input" style="min-width:100px"></td><td class="p-2 whitespace-nowrap"><input type="number" v-model="g.companions" class="form-input w-16" style="width:60px"></td><td class="p-2 whitespace-nowrap"><input type="text" v-model="g.invited_by" class="form-input" style="min-width:100px"></td><td class="p-2 whitespace-nowrap"><input type="text" v-model="g.notes" class="form-input" style="min-width:100px"></td><td class="p-2 whitespace-nowrap text-right"><button @click="currentEvent.guests.list.splice(idx,1)" class="text-red-500"><i class="fa-solid fa-trash-can"></i></button></td></tr></tbody>
+                </table>
+              </div>
               <div v-else class="bg-[#1e1e1e] border border-[#3c3f43] rounded p-6 flex items-center space-x-3 text-slate-500 mt-4"><div class="w-6 h-6 rounded-full bg-[#2a2d30] flex items-center justify-center text-xs"></div><span>No hay invitados en la lista.</span></div>
             </div>
 
@@ -723,7 +762,7 @@
                 <div class="flex justify-between items-center text-sm font-bold text-slate-300 mb-2 border-b border-[#3c3f43] pb-2"><div class="flex items-center"><i class="fa-solid fa-grip-vertical text-[#3c3f43] mr-2 cursor-move"></i> {{ hotel.name || 'Nuevo Hotel' }}</div><button @click="currentEvent.accommodation.splice(idx,1)" class="text-red-500"><i class="fa-solid fa-trash-can"></i></button></div>
                 <div class="grid grid-cols-[140px_1fr] gap-3 items-center"><label class="form-label">Hotel</label><input type="text" v-model="hotel.name" class="form-input"></div>
                 <div class="grid grid-cols-[140px_1fr] gap-3 items-center"><label class="form-label">Dirección</label><input type="text" v-model="hotel.address" class="form-input"></div>
-                <div class="grid grid-cols-[140px_1fr] gap-3 items-center"><label class="form-label">Check In / Out</label><div class="flex space-x-2"><input type="time" v-model="hotel.check_in" class="form-input w-1/4"><input type="time" v-model="hotel.check_out" class="form-input w-1/4"></div></div>
+                <div class="grid grid-cols-[140px_1fr] gap-3 items-center"><label class="form-label">Check In / Out</label><div class="flex flex-wrap gap-2"><input type="time" v-model="hotel.check_in" class="form-input flex-1 min-w-[100px]"><input type="time" v-model="hotel.check_out" class="form-input flex-1 min-w-[100px]"></div></div>
                 <div class="grid grid-cols-[140px_1fr] gap-3 items-center"><label class="form-label">Rooming</label><input type="text" v-model="hotel.rooming" class="form-input"></div>
               </div>
             </div>
@@ -742,24 +781,24 @@
             <div v-if="activeEventTab === 'travel'" class="max-w-4xl space-y-6">
               <div class="flex items-center space-x-2 text-slate-300 font-bold mb-4 border-b border-[#3c3f43] pb-2"><i class="fa-solid fa-plane"></i> <h2>Viaje (Roadmap)</h2></div>
               <div class="space-y-3 mb-6"><div class="grid grid-cols-[200px_1fr] gap-3 items-center max-w-xl"><label class="form-label">Road manager</label><input type="text" v-model="currentEvent.travel.road_manager" class="form-input"></div><div class="grid grid-cols-[200px_1fr] gap-3 items-center max-w-xl"><label class="form-label">Runner</label><input type="text" v-model="currentEvent.travel.runner" class="form-input"></div></div>
-              <div class="flex space-x-3 mb-4">
+              <div class="flex flex-wrap gap-3 mb-4">
                 <button @click="addTravelStage" class="bg-brand text-white px-3 py-1.5 rounded text-xs font-semibold">+ Añadir etapa de viaje</button>
                 <button @click="exportRoadmapPDF" class="bg-[#2a2d30] border border-[#3c3f43] text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-[#33363a]"><i class="fa-solid fa-print mr-1"></i> Exportar hoja de ruta PDF</button>
               </div>
               <div v-for="(stage, idx) in currentEvent.travel.stages" :key="idx" class="bg-[#1e1e1e] border border-[#3c3f43] rounded-lg p-5 space-y-4 mb-4">
                 <div class="flex justify-between items-center text-sm font-bold text-slate-300 mb-2 border-b border-[#3c3f43] pb-2"><div><i class="fa-solid fa-grip-vertical text-[#3c3f43] mr-2"></i> {{ stage.origin || 'Origen' }} -> {{ stage.destination || 'Destino' }}</div><button @click="currentEvent.travel.stages.splice(idx,1)" class="text-red-500"><i class="fa-solid fa-trash-can"></i></button></div>
-                <div class="grid grid-cols-[140px_1fr] gap-3 items-center"><label class="form-label">Origen / Destino</label><div class="flex items-center space-x-2"><input type="text" v-model="stage.origin" class="form-input w-1/2"> <span>-></span> <input type="text" v-model="stage.destination" class="form-input w-1/2"></div></div>
-                <div class="grid grid-cols-[140px_1fr] gap-3 items-center"><label class="form-label">Fecha y Transporte</label><div class="flex items-center space-x-2"><input type="date" v-model="stage.date" class="form-input w-1/3"><select v-model="stage.transport" class="form-input bg-[#232528] w-1/3"><option>Furgoneta</option><option>Avión</option><option>Tren</option></select></div></div>
-                <div class="grid grid-cols-[140px_1fr] gap-3 items-center"><label class="form-label">Salida / Llegada</label><div class="flex space-x-2"><input type="time" v-model="stage.departure_time" class="form-input w-1/4"><input type="time" v-model="stage.arrival_time" class="form-input w-1/4"></div></div>
+                <div class="grid grid-cols-[140px_1fr] gap-3 items-center"><label class="form-label">Origen / Destino</label><div class="flex flex-wrap items-center gap-2"><input type="text" v-model="stage.origin" class="form-input min-w-[100px] flex-1"> <span>-></span> <input type="text" v-model="stage.destination" class="form-input min-w-[100px] flex-1"></div></div>
+                <div class="grid grid-cols-[140px_1fr] gap-3 items-center"><label class="form-label">Fecha y Transporte</label><div class="flex flex-wrap items-center gap-2"><input type="date" v-model="stage.date" class="form-input flex-1 min-w-[120px]"><select v-model="stage.transport" class="form-input bg-[#232528] flex-1 min-w-[100px]"><option>Furgoneta</option><option>Avión</option><option>Tren</option></select></div></div>
+                <div class="grid grid-cols-[140px_1fr] gap-3 items-center"><label class="form-label">Salida / Llegada</label><div class="flex flex-wrap gap-2"><input type="time" v-model="stage.departure_time" class="form-input flex-1 min-w-[100px]"><input type="time" v-model="stage.arrival_time" class="form-input flex-1 min-w-[100px]"></div></div>
               </div>
             </div>
 
             <!-- 12. Técnico -->
             <div v-if="activeEventTab === 'technical'" class="max-w-3xl space-y-6">
               <div class="flex items-center space-x-2 text-slate-300 font-bold mb-4 border-b border-[#3c3f43] pb-2"><i class="fa-solid fa-sliders"></i> <h2>Especificaciones Técnicas (Rider)</h2></div>
-              <div class="grid grid-cols-[200px_1fr] gap-4 items-center"><label class="form-label">Contra Rider estado</label><select v-model="currentEvent.technical.contra_rider_status" class="form-input bg-[#232528] w-1/3"><option value=""></option><option>Aprobado</option><option>En negociación</option><option>Rechazado</option></select></div>
+              <div class="grid grid-cols-[200px_1fr] gap-4 items-center"><label class="form-label">Contra Rider estado</label><select v-model="currentEvent.technical.contra_rider_status" class="form-input bg-[#232528] w-full md:w-1/3"><option value=""></option><option>Aprobado</option><option>En negociación</option><option>Rechazado</option></select></div>
               <div class="grid grid-cols-[200px_1fr] gap-4 items-start"><label class="form-label pt-1.5">Contra Rider / Backline notas</label><textarea v-model="currentEvent.technical.contra_rider_notes" rows="3" class="form-input"></textarea></div>
-              <div class="grid grid-cols-[200px_1fr] gap-4 items-center"><label class="form-label">Medidas escenario</label><input type="text" v-model="currentEvent.technical.stage_size" placeholder="Ej. 10m x 8m" class="form-input w-1/2"></div>
+              <div class="grid grid-cols-[200px_1fr] gap-4 items-center"><label class="form-label">Medidas escenario</label><input type="text" v-model="currentEvent.technical.stage_size" placeholder="Ej. 10m x 8m" class="form-input w-full md:w-1/2"></div>
               <div class="border-t border-[#3c3f43] pt-6 mt-4 grid grid-cols-[200px_1fr] gap-4 items-center"><label class="form-label">Empresa de sonido</label><input type="text" v-model="currentEvent.technical.sound_company" class="form-input"></div>
               <div class="grid grid-cols-[200px_1fr] gap-4 items-center"><label class="form-label">Responsable de sonido</label><input type="text" v-model="currentEvent.technical.sound_rep" class="form-input"></div>
               <div class="grid grid-cols-[200px_1fr] gap-4 items-center"><label class="form-label">Responsable de luces</label><input type="text" v-model="currentEvent.technical.light_rep" class="form-input"></div>
@@ -816,10 +855,12 @@
             <div v-if="activeEventTab === 'schedule'" class="max-w-3xl space-y-6">
               <div class="flex items-center space-x-2 text-slate-300 font-bold mb-4 border-b border-[#3c3f43] pb-2"><i class="fa-solid fa-clock"></i> <h2>Horarios (Run of Show)</h2></div>
               <button @click="addScheduleItem" class="bg-brand text-white px-3 py-1.5 rounded text-xs font-semibold mt-4">+ Añadir horario</button>
-              <table class="w-full text-left text-xs bg-[#1e1e1e] rounded overflow-hidden" v-if="currentEvent.schedule.items && currentEvent.schedule.items.length">
-                <thead class="text-[#7f8389] border-b border-[#3c3f43] bg-[#232528]"><tr><th class="p-3">HORA</th><th class="p-3">ACTIVIDAD</th><th class="p-3 w-1/2">NOTAS</th><th class="p-3"></th></tr></thead>
-                <tbody class="divide-y divide-[#3c3f43]"><tr v-for="(item, idx) in currentEvent.schedule.items" :key="idx"><td class="p-2"><input type="time" v-model="item.time" class="form-input"></td><td class="p-2"><input type="text" v-model="item.activity" class="form-input font-bold text-brand"></td><td class="p-2"><input type="text" v-model="item.notes" class="form-input"></td><td class="p-2 text-right"><button @click="currentEvent.schedule.items.splice(idx,1)" class="text-red-500"><i class="fa-solid fa-trash-can"></i></button></td></tr></tbody>
-              </table>
+              <div class="overflow-x-auto" v-if="currentEvent.schedule.items && currentEvent.schedule.items.length">
+                <table class="w-full text-left text-xs bg-[#1e1e1e] rounded overflow-hidden">
+                  <thead class="text-[#7f8389] border-b border-[#3c3f43] bg-[#232528]"><tr><th class="p-3 whitespace-nowrap">HORA</th><th class="p-3 whitespace-nowrap">ACTIVIDAD</th><th class="p-3 whitespace-nowrap w-1/2">NOTAS</th><th class="p-3"></th></tr></thead>
+                  <tbody class="divide-y divide-[#3c3f43]"><tr v-for="(item, idx) in currentEvent.schedule.items" :key="idx"><td class="p-2 whitespace-nowrap"><input type="time" v-model="item.time" class="form-input" style="width:auto;min-width:90px"></td><td class="p-2 whitespace-nowrap"><input type="text" v-model="item.activity" class="form-input font-bold text-brand" style="width:auto;min-width:120px"></td><td class="p-2 whitespace-nowrap"><input type="text" v-model="item.notes" class="form-input" style="width:auto;min-width:120px"></td><td class="p-2 whitespace-nowrap text-right"><button @click="currentEvent.schedule.items.splice(idx,1)" class="text-red-500"><i class="fa-solid fa-trash-can"></i></button></td></tr></tbody>
+                </table>
+              </div>
               <div v-else class="bg-[#1e1e1e] border border-[#3c3f43] rounded p-6 flex items-center space-x-3 text-slate-500 mt-4"><div class="w-6 h-6 rounded-full bg-[#2a2d30] flex items-center justify-center text-xs"></div><span>No hay horarios programados</span></div>
             </div>
 
@@ -838,14 +879,14 @@
                 <div class="mt-8">
                   <h3 class="font-bold text-sm mb-3">Reparto (Splits)</h3>
                   <button @click="addAccountingSplit" class="bg-brand text-white px-3 py-1.5 rounded text-xs font-semibold mb-4">+ Añadir participante</button>
-                  <div v-if="currentEvent.accounting.splits && currentEvent.accounting.splits.length" class="space-y-2 max-w-md">
-                     <div v-for="(split, idx) in currentEvent.accounting.splits" :key="idx" class="flex items-center space-x-3 bg-[#1e1e1e] border border-[#3c3f43] p-2 rounded">
-                        <input type="text" v-model="split.name" placeholder="Ej. HADADANZA" class="form-input flex-1">
-                        <input type="number" v-model="split.percentage" placeholder="%" class="form-input w-20 text-center text-brand font-bold">
-                        <span class="text-xs w-24 text-right font-bold">{{ formatCurrency((currentEvent.guarantee_amount * split.percentage) / 100) }}</span>
-                        <button @click="currentEvent.accounting.splits.splice(idx,1)" class="text-red-500 px-2"><i class="fa-solid fa-trash-can"></i></button>
-                     </div>
-                  </div>
+                   <div v-if="currentEvent.accounting.splits && currentEvent.accounting.splits.length" class="space-y-2 max-w-md">
+                      <div v-for="(split, idx) in currentEvent.accounting.splits" :key="idx" class="flex flex-wrap items-center gap-2 bg-[#1e1e1e] border border-[#3c3f43] p-2 rounded">
+                         <input type="text" v-model="split.name" placeholder="Ej. HADADANZA" class="form-input flex-1 min-w-[120px]">
+                         <input type="number" v-model="split.percentage" placeholder="%" class="form-input w-20 text-center text-brand font-bold">
+                         <span class="text-xs w-24 text-right font-bold">{{ formatCurrency((currentEvent.guarantee_amount * split.percentage) / 100) }}</span>
+                         <button @click="currentEvent.accounting.splits.splice(idx,1)" class="text-red-500 px-2"><i class="fa-solid fa-trash-can"></i></button>
+                      </div>
+                   </div>
                 </div>
               </div>
               <div v-else class="text-center p-8 bg-[#1e1e1e] border border-[#3c3f43] rounded text-slate-500"><i class="fa-solid fa-lock text-3xl mb-3"></i><p>Acceso denegado a finanzas.</p></div>
@@ -889,7 +930,7 @@
     </main>
     <!-- AUDIT LOG OVERLAY -->
     <transition name="fade"><div v-show="showAuditLog" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" @click.self="showAuditLog=false">
-      <div class="w-full max-w-3xl max-h-[80vh] bg-[#1e1e1e] border border-bandit-borderDark rounded-lg flex flex-col overflow-hidden">
+      <div class="w-full max-w-3xl max-h-[80vh] bg-[#1e1e1e] border border-bandit-borderDark rounded-lg flex flex-col overflow-hidden modal-mobile">
         <div class="px-6 py-4 border-b border-bandit-borderDark flex items-center justify-between bg-[#232528]"><h3 class="font-bold text-sm">Registro de Auditoría</h3><button @click="showAuditLog=false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button></div>
         <div class="flex-1 overflow-y-auto custom-scrollbar p-4">
           <div v-if="auditLogs.length === 0" class="text-center text-slate-500 py-8 text-sm">No hay registros de auditoría</div>
@@ -908,7 +949,7 @@
     </div></transition>
     <!-- TEMPLATE EDITOR MODAL -->
     <transition name="fade"><div v-show="showTemplateEditor" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" @click.self="showTemplateEditor=false">
-      <div class="w-full max-w-lg max-h-[90vh] bg-[#1e1e1e] border border-bandit-borderDark rounded-lg flex flex-col overflow-hidden">
+      <div class="w-full max-w-lg max-h-[90vh] bg-[#1e1e1e] border border-bandit-borderDark rounded-lg flex flex-col overflow-hidden modal-mobile">
         <div class="px-6 py-4 border-b border-bandit-borderDark flex items-center justify-between bg-[#232528]">
           <h3 class="font-bold text-sm">{{ editTemplate ? 'Editar' : 'Nueva' }} Plantilla</h3>
           <button @click="showTemplateEditor=false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
@@ -975,7 +1016,7 @@
 
     <!-- TEMPLATE PREVIEW MODAL -->
     <transition name="fade"><div v-show="showTemplatePreview" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" @click.self="showTemplatePreview=false">
-      <div class="w-full max-w-2xl max-h-[85vh] bg-[#1e1e1e] border border-bandit-borderDark rounded-lg flex flex-col overflow-hidden">
+      <div class="w-full max-w-2xl max-h-[85vh] bg-[#1e1e1e] border border-bandit-borderDark rounded-lg flex flex-col overflow-hidden modal-mobile">
         <div class="px-6 py-4 border-b border-bandit-borderDark flex items-center justify-between bg-[#232528]">
           <h3 class="font-bold text-sm flex items-center">
             <i :class="previewTemplate?.file_type === '.pdf' ? 'fa-solid fa-file-pdf text-red-400 mr-2' : previewTemplate?.file_type ? 'fa-solid fa-file-word text-blue-400 mr-2' : 'fa-regular fa-file-lines text-brand mr-2'"></i>
@@ -1001,7 +1042,7 @@
 
     <!-- TEMPLATE PICKER MODAL -->
     <transition name="fade"><div v-show="showTemplatePicker" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" @click.self="showTemplatePicker=false">
-      <div class="w-full max-w-xl max-h-[80vh] bg-[#1e1e1e] border border-bandit-borderDark rounded-lg flex flex-col overflow-hidden">
+      <div class="w-full max-w-xl max-h-[80vh] bg-[#1e1e1e] border border-bandit-borderDark rounded-lg flex flex-col overflow-hidden modal-mobile">
         <div class="px-6 py-4 border-b border-bandit-borderDark flex items-center justify-between bg-[#232528]">
           <h3 class="font-bold text-sm">Seleccionar plantilla de {{ pickerType === 'contract' ? 'Contrato' : 'Técnico' }}</h3>
           <button @click="showTemplatePicker=false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
@@ -1026,7 +1067,7 @@
 
     <!-- NEW COLLABORATOR MODAL -->
     <transition name="fade"><div v-show="showNewColModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" @click.self="showNewColModal=false">
-      <div class="w-full max-w-md bg-[#1e1e1e] border border-bandit-borderDark rounded-lg flex flex-col overflow-hidden">
+      <div class="w-full max-w-md bg-[#1e1e1e] border border-bandit-borderDark rounded-lg flex flex-col overflow-hidden modal-mobile">
         <div class="px-6 py-4 border-b border-bandit-borderDark flex items-center justify-between bg-[#232528]">
           <h3 class="font-bold text-sm">Nuevo colaborador</h3>
           <button @click="showNewColModal=false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
@@ -1515,9 +1556,11 @@
         }
 
         function selectArtist(artist) { activeArtist.value = artist; showArtistDropdown.value = false; loadArtistEvents(artist.id); }
+        function toggleSidebar() { sidebarCollapsed.value = !sidebarCollapsed.value; }
         function openGlobalView(view) {
           globalView.value = view;
           currentEvent.value = null;
+          if (window.innerWidth < 768) sidebarCollapsed.value = true; // auto-close on mobile
           if (view === 'templates') { loadTemplates(); loadTemplateCategories(); }
           if (view === 'calendar') {
             const now = new Date();
@@ -2279,7 +2322,7 @@
           sessionUser, sessionPermissions, isImpersonating, impersonatedBy, handleLogin, handleLogout, googleLoginError, handleGoogleLogin, handleImpersonate, handleUnimpersonate,
           artists, activeArtist, events, crew, activeEditCrew, timelineMonths, currentEvent, activeEventTab, eventTabs, drawerOpen, newEventForm, contractTemplate, contractEditorRef, financesGlobal,
           currentYear, currentMonth, currentMonthName, calendarMode, statusFilters, newTaskText, timelineRef,
-          openGlobalView, openEvent, openEventEditor, createNewEventFromDrawer, saveCurrentEvent, deleteCurrentEvent, selectArtist, getEventColor, formatCurrency, formatDateLong, formatDate, uploadArtistImage, uploadContractImage, changeYear, changeMonth, addHotel, addTravelStage, addScheduleItem, addGuest, addEventContact, addAccountingSplit, addTaskToForm, addSingleTask, applyTaskTemplate, uploadEventFile, deleteEventFile, generateContractPDF, exportRoadmapPDF, exportFullRoadmapPDF, importContractDocx, uploadTechnicalRider, uploadTechnicalContraRider, deleteTechnicalRider, deleteTechnicalContraRider, openCrewEditor, closeCrewEditor, saveCrewMember, addCrewMember, addVehicle, deleteCrewMember,
+          toggleSidebar, openGlobalView, openEvent, openEventEditor, createNewEventFromDrawer, saveCurrentEvent, deleteCurrentEvent, selectArtist, getEventColor, formatCurrency, formatDateLong, formatDate, uploadArtistImage, uploadContractImage, changeYear, changeMonth, addHotel, addTravelStage, addScheduleItem, addGuest, addEventContact, addAccountingSplit, addTaskToForm, addSingleTask, applyTaskTemplate, uploadEventFile, deleteEventFile, generateContractPDF, exportRoadmapPDF, exportFullRoadmapPDF, importContractDocx, uploadTechnicalRider, uploadTechnicalContraRider, deleteTechnicalRider, deleteTechnicalContraRider, openCrewEditor, closeCrewEditor, saveCrewMember, addCrewMember, addVehicle, deleteCrewMember,
           // Google Calendar
           googleStatus, googleEmail, openGoogleSettings,templatesList, templateCategories, templateFilterType, templateFilterCategory, templateSearch,
           showTemplateEditor, editTemplate, templateForm, templateSaving, saveTemplate, openTemplateEditor,
